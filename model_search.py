@@ -643,15 +643,15 @@ def run_model_search_cnn(data_folder, dataset, val_split, augment, verbose,
                          num_best, prior_time):
 
     ## Data, etc ##
-    assert dataset != 'rcv1', 'RCV1 dataset not supported for CNNs'
-    dataset = torchvision.datasets.MNIST if dataset=='mnist' else torchvision.datasets.FashionMNIST if dataset=='fmnist' else torchvision.datasets.CIFAR10 if dataset=='cifar10' else torchvision.datasets.CIFAR100
     dataset_code = 'M' if dataset=='mnist' else 'F' if dataset=='fmnist' else 'T' if dataset=='cifar10' else 'H'
+    dataset = torchvision.datasets.MNIST if dataset=='mnist' else torchvision.datasets.FashionMNIST if dataset=='fmnist' else torchvision.datasets.CIFAR10 if dataset=='cifar10' else torchvision.datasets.CIFAR100 if dataset=='cifar100' else None
+    assert dataset, 'Invalid dataset'
     data = get_data_cnn(data_folder = data_folder, dataset = dataset, val_split = val_split, augment = augment)
 
     run_network_kw = {
         'data': data,
-        'input_size': [1,28,28] if 'mnist' in dataset else [3,32,32],
-        'output_size': 100 if dataset == 'cifar100' else 10,
+        'input_size': [1,28,28] if dataset_code in ['M','F'] else [3,32,32],
+        'output_size': 100 if dataset_code == 'H' else 10,
         'num_workers': 8,
         'pin_memory': True,
         'verbose': verbose
@@ -911,8 +911,8 @@ def run_model_search_mlp(data_folder, dataset, val_split, verbose,
                          num_best, prior_time):
 
     ## Data, etc ##
-    assert 'cifar' not in dataset, 'CIFAR datasets not supported for MLPs'
-    dataset_code = 'M' if dataset=='mnist' else 'F' if dataset=='fmnist' else 'R'
+    dataset_code = 'M' if dataset=='mnist' else 'F' if dataset=='fmnist' else 'R' if dataset=='rcv1_2000' else None
+    assert dataset_code, 'Invalid dataset'
     data = get_data_mlp(data_folder = data_folder, dataset = dataset+'.npz', val_split = val_split)
 
     run_network_kw = {
