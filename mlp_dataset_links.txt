@@ -1,0 +1,4 @@
+https://drive.google.com/drive/folders/1fFy-kE_hvjEXAfDcqtcormNljj7YJc2R?usp=sharing
+
+For more details on Reuters RCV1, see the paper:
+Sourya Dey, Kuan-Wen Huang, Peter A. Beerel, Keith M. Chugg, "Pre-Defined Sparse Neural Networks with Hardware Acceleration" in IEEE Journal on Emerging and Selected Topics in Circuits and Systems, vol. 9, no. 2, pp. 332-345, June 2019.
