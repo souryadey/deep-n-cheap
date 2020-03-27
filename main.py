@@ -36,19 +36,11 @@ parser.add_argument("--input_drop_probs", type = float, nargs = '+', default = [
 parser.add_argument("--drop_probs_cnn", type = float, nargs = '+', default = [0.15,0.3,0.45], help = "<CNNs only> What drop probabilities to explore in non-input layers")
 parser.add_argument("--drop_probs_mlp", type = float, nargs = '+', default = [0,0.1,0.2,0.3,0.4,0.5], help = "<MLPs only> What drop probabilities to explore in hidden layers")
 
-parser.add_argument("--num_best", type = int, default = 3, help = "# best models to return from final stage of search")
+parser.add_argument("--num_best", type = int, default = 1, help = "# best models to return from final stage of search")
 parser.add_argument("--prior_time", type = float, default = 0.0, help = "When resuming a run, enter time elapsed so far (useful for getting accurate time estimate)")
 
 args = parser.parse_args()
 
-# =============================================================================
-# run_model_search_mlp(data_folder=args.data_folder, dataset='mnist', val_split=args.val_split, verbose=args.verbose,
-#                          wc=args.wc, penalize=args.penalize, tbar_epoch=5, numepochs=10, val_patience=args.val_patience,
-#                          bo_prior_states=2, bo_steps=2, bo_explore=args.bo_explore,
-#                          num_hidden_layers=args.num_hidden_layers, hidden_nodes=args.hidden_nodes, lr=args.lr, weight_decay=args.weight_decay, batch_size=args.batch_size,
-#                          drop_probs=args.drop_probs_mlp,
-#                          num_best=args.num_best, prior_time=args.prior_time)
-# =============================================================================
 
 if args.network == 'cnn':
     run_model_search_cnn(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split, augment=args.augment, verbose=args.verbose,
