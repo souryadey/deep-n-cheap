@@ -30,8 +30,8 @@ Set `wc` to high values to penalize complexity at the cost of performance:
 
 ### Datasets (including custom)
 Set `dataset` to:
-- `--dataset=torchvision.datasets.<dataset>`. Currently supported values of <dataset> = MNIST, FashionMNIST, CIFAR10, CIFAR100
-- `--dataset='<dataset>.npz'`, where <dataset> is any **custom dataset**. Must be `.npz` file with 4 keys:
+- `--dataset=torchvision.datasets.<dataset>`. Currently supported values of `<dataset>` = MNIST, FashionMNIST, CIFAR10, CIFAR100
+- `--dataset='<dataset>.npz'`, where `<dataset>` is any **custom dataset**. Must be `.npz` file with 4 keys:
 	- `xtr`: numpy array of shape (num_train_samples, num_features...), example (50000,3,32,32) or (60000,784)
 	- `ytr`: numpy array of shape (num_train_samples,)
 	- `xte`: numpy array of shape (num_test_samples, num_features...)
