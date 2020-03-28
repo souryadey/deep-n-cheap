@@ -1,5 +1,5 @@
 # =============================================================================
-# Pytorch implementation of low complexity neural networks
+# Pytorch implementation of neural networks
 # Sourya Dey, USC
 # =============================================================================
 
@@ -212,20 +212,19 @@ class Hook():
 # =============================================================================
 # Data processing
 # =============================================================================
-def get_data_mlp(data_folder = './', dataset = 'fmnist.npz', val_split = 1/6):
+def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):
     '''
-    Return data for training MLPs
-
     Args:
         data_folder : Location of dataset
-        dataset (string): Choose from one of the datasets in the datasets_MLP folder linked in mlp_dataset_links.txt
-            Currently 'mnist.npz', 'fmnist.npz', 'rcv1_2000.npz'
-            Alternatively define your own npz file and place in root directory
-            Must be in npz or npy format with 4 keys -- x data and y data for train and test -- xtr, ytr, xte, yte
+        dataset (string): <dataset name>.npz, must have 4 keys -- xtr, ytr, xte, yte
+            xtr: (num_trainval_samples, num_features)
+            ytr: (num_trainval_samples,)
+            xte: (num_test_samples, num_features)
+            yte: (num_test_samples,)
         val_split (float, optional): What fraction of training data to use for validation
             If not 0, val data is taken from end of training set. Eg: For val_split=1/6, last 10k images out of 60k for MNIST are taken as val
             If 0, train set is complete train set (including val). Test data is returned as val set
-            Defaults to 1/6
+            Defaults to 1/5
 
     Returns:
         xtr (torch tensor): Shape: (num_train_samples, num_features)
@@ -264,13 +263,10 @@ def get_data_mlp(data_folder = './', dataset = 'fmnist.npz', val_split = 1/6):
         return xtr,ytr, xte,yte, xte,yte
 
 
-def get_data_cnn(data_folder = './', dataset = torchvision.datasets.CIFAR10, val_split = 1/5, augment = True):
+def get_data_torchvision(data_folder = './', dataset = torchvision.datasets.CIFAR10, val_split = 1/5, augment = True):
     '''
-    Return data for training CNNs
-
     Args:
         dataset (Method from torchvision.datasets): Currently supports MNIST, FMNIST, CIFAR10, CIFAR100
-            Datasets must be downloaded first
         val_split (float, optional): What fraction of training data to use for validation
             If not 0, val data is taken from end of training set. Eg: For val_split=1/5, last 10k images out of 50k for CIFAR are taken as val
             If 0, train set is complete train set (including val). Test data is returned as val set

@@ -1,13 +1,18 @@
 import argparse
+import torch
+import torchvision
 from model_search import run_model_search_cnn, run_model_search_mlp
+from single_model import get_data_npz, get_data_torchvision
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument("--network", type = str, default='cnn', help = "Choose from 'cnn' or 'mlp'")
 parser.add_argument("--data_folder", type = str, default='./', help = "Path to folder where dataset is stored")
-parser.add_argument("--dataset", type = str, default='cifar10', help = "For CNNs, choose from 'cifar10', 'cifar100', 'mnist', 'fmnist'. For MLPs, choose from 'mnist', 'fmnist', 'rcv1_2000'.")
+parser.add_argument("--dataset", default=torchvision.datasets.CIFAR10, help = "Either something like torchvision.datasets.CIFAR10, or something like 'mnist.npz'")
 parser.add_argument("--val_split", type = float, default = 1/5, help = "Fraction of complete training data to use for validation")
 parser.add_argument("--augment", type = bool, default=True, help = "<CNNs only> Whether to apply basic augmentation")
+parser.add_argument("--input_size", type = int, nargs='+', default=[3,32,32], help = "Dimensions of 1 input data sample")
+parser.add_argument("--output_size", type = int, default=10, help = "Sumber of classes")
 parser.add_argument("--verbose", type = bool, default = False, help = "print messages after every epoch")
 
 parser.add_argument("--wc", type = float, default = 0.1, help = "Complexity penalty coefficient")
@@ -42,15 +47,30 @@ parser.add_argument("--prior_time", type = float, default = 0.0, help = "When re
 args = parser.parse_args()
 
 
+try:
+    tvd = issubclass(args.dataset,torch.utils.data.Dataset)
+except TypeError:
+    tvd = False
+if tvd:
+    data = get_data_torchvision(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split, augment=args.augment)
+    dataset_code = 'XXX'
+else:
+    data = get_data_npz(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split)
+    dataset_code = 'M' if args.dataset=='mnist.npz' else 'F' if args.dataset=='fmnist.npz' else 'R' if args.dataset=='rcv1_2000.npz' else 'XXX'
+
+
 if args.network == 'cnn':
-    run_model_search_cnn(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split, augment=args.augment, verbose=args.verbose,
+    run_model_search_cnn(data=data, dataset_code=dataset_code,
+                         input_size=args.input_size, output_size=args.output_size, verbose=args.verbose,
                          wc=args.wc, tbar_epoch=args.tbar_epoch, numepochs=args.numepochs, val_patience=args.val_patience,
                          bo_prior_states=args.bo_prior_states, bo_steps=args.bo_steps, bo_explore=args.bo_explore, grid_search_order=args.grid_search_order,
                          num_conv_layers=args.num_conv_layers, channels_first=args.channels_first, channels_upper=args.channels_upper, lr=args.lr, weight_decay=args.weight_decay, batch_size=args.batch_size,
                          bn_fracs=args.bn_fracs, do_fracs=args.do_fracs, input_drop_probs=args.input_drop_probs, drop_probs=args.drop_probs_cnn,
                          num_best=args.num_best, prior_time=args.prior_time)
+
 elif args.network == 'mlp':
-    run_model_search_mlp(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split, verbose=args.verbose,
+    run_model_search_mlp(data=data, dataset_code=dataset_code,
+                         input_size=args.input_size, output_size=args.output_size, verbose=args.verbose,
                          wc=args.wc, penalize=args.penalize, tbar_epoch=args.tbar_epoch, numepochs=args.numepochs, val_patience=args.val_patience,
                          bo_prior_states=args.bo_prior_states, bo_steps=args.bo_steps, bo_explore=args.bo_explore,
                          num_hidden_layers=args.num_hidden_layers, hidden_nodes=args.hidden_nodes, lr=args.lr, weight_decay=args.weight_decay, batch_size=args.batch_size,

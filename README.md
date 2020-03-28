@@ -42,9 +42,10 @@ python main.py --network 'cnn' --dataset 'fmnist' --data_folder '../' --wc 1 --n
 python main.py --network 'mlp' --dataset 'rcv1_2000' --wc 0.05 --penalize 'numparams' --numepochs 20 --num_hidden_layers 0 2 --lr -4 -1
 ```
 
-Dataset notes:
-- To run CNNs, datasets are downloaded automatically into `data_folder`
-- To run MLPs, put your datasets in .npz format in `data_folder`. Some datasets are provided, see `mlp_dataset_links.txt` for downloading
+### Datasets
+- To run CNNs, datasets are downloaded automatically into `data_folder`. Deep-n-Cheap currently supports FashionMNIST, CIFAR-10 and CIFAR-100 from `torchvision.datasets`. Add more datasets to `get_data_cnn()` in `single_model.py`.
+- To run MLPs, see `mlp_dataset_links.txt` for download links and put them in `data_folder`.
+- To run **custom datasets**, 
 
 ### Contact
 Deep-n-Cheap is developed and maintained by the [USC HAL team](https://hal.usc.edu/)

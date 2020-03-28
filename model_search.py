@@ -5,14 +5,13 @@
 
 import numpy as np
 import torch
-import torchvision
 from scipy import linalg
 from scipy.stats import norm as gaussian
 import sobol_seq
 import pickle
 import itertools
 import time
-from single_model import get_data_mlp, get_data_cnn, run_network, Net, net_kws_defaults, run_kws_defaults
+from single_model import run_network, Net, net_kws_defaults, run_kws_defaults
 
 
 # =============================================================================
@@ -37,12 +36,14 @@ def get_numparams(input_size, output_size, net_kw):
 def default_weight_decay(dataset_code, input_size, output_size, net_kw):
     ''' Get default weight decay for any net '''
     numparams = get_numparams(input_size, output_size, net_kw)
-    if 'T' in dataset_code or 'H' in dataset_code or 'F' in dataset_code and len(input_size)>1: #CNNs
+    if len(input_size)>1: #any CNN dataset
         dwd = numparams*1e-11 if numparams>=1e6 else 0. #number of parameters in M * 1e-5. Eg: 0 for numparams < 1M, 1e-4 for numparams = 10M, etc
     elif 'F' in dataset_code or 'M' in dataset_code:
         dwd = numparams*1e-9 if numparams>=1e4 else 0.
     elif 'R' in dataset_code:
         dwd = numparams*1e-10 if numparams>=1e5 else 0.
+    else: #custom MLP dataset
+        dwd = 0.
     return dwd
 
 
@@ -635,7 +636,8 @@ def dropout_mlp(num_hidden_layers, drop_probs = [0,0.1,0.2,0.3,0.4,0.5], loss_kw
 # =============================================================================
 # EXECUTION
 # =============================================================================
-def run_model_search_cnn(data_folder, dataset, val_split, augment, verbose,
+def run_model_search_cnn(data, dataset_code,
+                         input_size, output_size, verbose,
                          wc, tbar_epoch, numepochs, val_patience,
                          bo_prior_states, bo_steps, bo_explore, grid_search_order,
                          num_conv_layers, channels_first, channels_upper, lr, weight_decay, batch_size,
@@ -643,17 +645,10 @@ def run_model_search_cnn(data_folder, dataset, val_split, augment, verbose,
                          num_best, prior_time):
 
     ## Data, etc ##
-    dataset_code = 'M' if dataset=='mnist' else 'F' if dataset=='fmnist' else 'T' if dataset=='cifar10' else 'H'
-    dataset = torchvision.datasets.MNIST if dataset=='mnist' else torchvision.datasets.FashionMNIST if dataset=='fmnist' else torchvision.datasets.CIFAR10 if dataset=='cifar10' else torchvision.datasets.CIFAR100 if dataset=='cifar100' else None
-    assert dataset, 'Invalid dataset'
-    data = get_data_cnn(data_folder = data_folder, dataset = dataset, val_split = val_split, augment = augment)
-
     run_network_kw = {
         'data': data,
-        'input_size': [1,28,28] if dataset_code in ['M','F'] else [3,32,32],
-        'output_size': 100 if dataset_code == 'H' else 10,
-        'num_workers': 8,
-        'pin_memory': True,
+        'input_size': input_size,
+        'output_size': output_size,
         'verbose': verbose
         }
     
@@ -903,7 +898,8 @@ def run_model_search_cnn(data_folder, dataset, val_split, augment, verbose,
         
         
         
-def run_model_search_mlp(data_folder, dataset, val_split, verbose,
+def run_model_search_mlp(data, dataset_code,
+                         input_size, output_size, verbose,
                          wc, penalize, tbar_epoch, numepochs, val_patience,
                          bo_prior_states, bo_steps, bo_explore,
                          num_hidden_layers, hidden_nodes, lr, weight_decay, batch_size,
@@ -911,14 +907,10 @@ def run_model_search_mlp(data_folder, dataset, val_split, verbose,
                          num_best, prior_time):
 
     ## Data, etc ##
-    dataset_code = 'M' if dataset=='mnist' else 'F' if dataset=='fmnist' else 'R' if dataset=='rcv1_2000' else None
-    assert dataset_code, 'Invalid dataset'
-    data = get_data_mlp(data_folder = data_folder, dataset = dataset+'.npz', val_split = val_split)
-
     run_network_kw = {
         'data': data,
-        'input_size': [2000 if dataset_code=='R' else 784],
-        'output_size': 50 if dataset_code=='R' else 10,
+        'input_size': input_size,
+        'output_size': output_size,
         'verbose': verbose
         }
     
