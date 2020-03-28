@@ -48,11 +48,11 @@ args = parser.parse_args()
 
 
 try:
-    tvd = issubclass(args.dataset,torch.utils.data.Dataset)
-except TypeError:
+    tvd = issubclass(eval(args.dataset),torch.utils.data.Dataset)
+except:
     tvd = False
 if tvd:
-    data = get_data_torchvision(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split, augment=args.augment)
+    data = get_data_torchvision(data_folder=args.data_folder, dataset=eval(args.dataset), val_split=args.val_split, augment=args.augment)
     dataset_code = 'XXX'
 else:
     data = get_data_npz(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split)
