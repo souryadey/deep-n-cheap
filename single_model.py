@@ -217,9 +217,9 @@ def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):
     Args:
         data_folder : Location of dataset
         dataset (string): <dataset name>.npz, must have 4 keys -- xtr, ytr, xte, yte
-            xtr: (num_trainval_samples, num_features)
+            xtr: (num_trainval_samples, num_features...)
             ytr: (num_trainval_samples,)
-            xte: (num_test_samples, num_features)
+            xte: (num_test_samples, num_features...)
             yte: (num_test_samples,)
         val_split (float, optional): What fraction of training data to use for validation
             If not 0, val data is taken from end of training set. Eg: For val_split=1/6, last 10k images out of 60k for MNIST are taken as val
@@ -227,11 +227,11 @@ def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):
             Defaults to 1/5
 
     Returns:
-        xtr (torch tensor): Shape: (num_train_samples, num_features)
+        xtr (torch tensor): Shape: (num_train_samples, num_features...)
         ytr (torch tensor): Shape: (num_train_samples,)
-        xva (torch tensor): Shape: (num_val_samples, num_features). This is xte if val_split = 0
+        xva (torch tensor): Shape: (num_val_samples, num_features...). This is xte if val_split = 0
         yva (torch tensor): Shape: (num_val_samples,). This is yte if val_split = 0
-        xte (torch tensor): Shape: (num_test_samples, num_features)
+        xte (torch tensor): Shape: (num_test_samples, num_features...)
         yte (torch tensor): Shape: (num_test_samples,)
 
     '''
