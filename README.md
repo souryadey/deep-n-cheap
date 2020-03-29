@@ -31,12 +31,12 @@ Set `wc` to high values to penalize complexity at the cost of performance:
 ## Datasets (including custom)
 Set `dataset` to:
 - `--dataset=torchvision.datasets.<dataset>`. Currently supported values of `<dataset>` = MNIST, FashionMNIST, CIFAR10, CIFAR100
-- `--dataset='<dataset>.npz'`, where `<dataset>` is any **custom dataset**. Must be `.npz` file with 4 keys:
+- `--dataset='<dataset>.npz'`, where `<dataset>` is a `.npz` file with 4 keys:
 	- `xtr`: numpy array of shape (num_train_samples, num_features...), example (50000,3,32,32) or (60000,784)
 	- `ytr`: numpy array of shape (num_train_samples,)
 	- `xte`: numpy array of shape (num_test_samples, num_features...)
 	- `yte`: numpy array of shape (num_test_samples,)
-- Some custom datasets can be downloaded from the links in `dataset_links.txt`
+- Some datasets can be downloaded from the links in `dataset_links.txt`. Alternatively, define your own **custom datasets**.
 
 ## Examples
 1. Search for CNNs between 4-16 layers on CIFAR-10, train each for 100 epochs, run Bayesian optimization for 15 prior points and 15 steps. Optimize for performance only. Estimated search cost: 30 GPU hours
