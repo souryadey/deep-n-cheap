@@ -29,10 +29,10 @@ Set `wc` to high values to penalize complexity at the cost of performance:
 - Any non-negative value of `wc` is supported!
 
 ## Datasets (including custom)
-Set `dataset` to:
+Set `dataset` to either:
 - `--dataset=torchvision.datasets.<dataset>`. Currently supported values of `<dataset>` = MNIST, FashionMNIST, CIFAR10, CIFAR100
 - `--dataset='<dataset>.npz'`, where `<dataset>` is a `.npz` file with 4 keys:
-	- `xtr`: numpy array of shape (num_train_samples, num_features...), example (50000,3,32,32) or (60000,784)
+	- `xtr`: numpy array of shape (num_train_samples, num_features...), example (50000,3,32,32) or (60000,784). Image data should be in _channels_first_ format.
 	- `ytr`: numpy array of shape (num_train_samples,)
 	- `xte`: numpy array of shape (num_test_samples, num_features...)
 	- `yte`: numpy array of shape (num_test_samples,)
