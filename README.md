@@ -11,7 +11,7 @@ This repository implements _Deep-n-Cheap_ – an AutoML framework to search for 
 - Install [Pytorch](https://pytorch.org/)
 ```
 $ pip install sobol_seq tqdm
-$ git clone https://github.com/souryadey/predefinedsparse-nnets.git
+$ git clone https://github.com/souryadey/deep-n-cheap.git
 $ cd deep-n-cheap
 $ python main.py
 ```
