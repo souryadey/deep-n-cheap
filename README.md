@@ -60,9 +60,9 @@ python main.py --network 'cnn' --dataset 'rcv1_2000_reshaped.npz' --input_size 5
 ```
 
 ## Some results from the research paper
-- >91% accuracy on CIFAR-10 in 9 hrs of searching with a model taking 3 sec/epoch to train.
-- >95% accuracy on Fashion-MNIST in 17 hrs of searching with a model taking 5 sec/epoch to train.
-- >91% accuracy on Reuters RCV1 in 2 hrs of searching with a model with 1M parameters.
+- &gt;91% accuracy on CIFAR-10 in 9 hrs of searching with a model taking 3 sec/epoch to train.
+- &gt;95% accuracy on Fashion-MNIST in 17 hrs of searching with a model taking 5 sec/epoch to train.
+- &gt;91% accuracy on Reuters RCV1 in 2 hrs of searching with a model with 1M parameters.
 
 ## Contact
 Deep-n-Cheap is developed and maintained by the [USC HAL team](https://hal.usc.edu/)
