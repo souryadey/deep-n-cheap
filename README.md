@@ -6,7 +6,9 @@ This repository implements _Deep-n-Cheap_ – an AutoML framework to search for 
 - Cuttomizable search space for both architecture and training hyperparameters
 - Supports CNNs and MLPs
 
-**Highlight**: State-of-the-art performance on benchmark and custom datasets with training time orders of magnitude lower than competing frameworks and NAS efforts. Research paper available on [arXiv](https://arxiv.org/abs/2004.00974).
+**Highlight**: State-of-the-art performance on benchmark and custom datasets with training time orders of magnitude lower than competing frameworks and NAS efforts.
+
+**Research paper** available on [arXiv](https://arxiv.org/abs/2004.00974). Please consider citing it if you use or benefit from this work.
 
 ## How to run?
 - Install Python 3
