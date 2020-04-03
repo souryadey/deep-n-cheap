@@ -1,4 +1,6 @@
 # deep-n-cheap ![DnC logo](/dnc_logo.png)
+
+## Welcome
 This repository implements _Deep-n-Cheap_ – an AutoML framework to search for deep learning models. Features include:
 - **Complexity oriented**: Get models with good performance and low training time or parameter count
 - Cuttomizable search space for both architecture and training hyperparameters
