@@ -2,7 +2,7 @@ import argparse
 import torch
 import torchvision
 from model_search import run_model_search_cnn, run_model_search_mlp
-from single_model import get_data_npz, get_data_torchvision
+from model.torch_model import get_data_npz, get_data_torchvision
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 

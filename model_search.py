@@ -11,7 +11,7 @@ import sobol_seq
 import pickle
 import itertools
 import time
-from single_model import run_network, Net, net_kws_defaults, run_kws_defaults
+from model.torch_model import run_network, Net, net_kws_defaults, run_kws_defaults
 
 
 # =============================================================================
