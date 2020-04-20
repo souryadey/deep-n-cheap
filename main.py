@@ -1,8 +1,8 @@
 import argparse
 import torch
 import torchvision
-from model_search import run_model_search_cnn, run_model_search_mlp
-from model.torch_model import get_data_npz, get_data_torchvision
+
+import os
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -44,7 +44,18 @@ parser.add_argument("--drop_probs_mlp", type = float, nargs = '+', default = [0,
 parser.add_argument("--num_best", type = int, default = 1, help = "# best models to return from final stage of search")
 parser.add_argument("--prior_time", type = float, default = 0.0, help = "When resuming a run, enter time elapsed so far (useful for getting accurate time estimate)")
 
+# DL framework
+parser.add_argument("--dl_framework", type = str, default = 'torch', help = "Choose from 'torch' or 'tf.keras'")
+
 args = parser.parse_args()
+
+if args.dl_framework == 'torch':
+    from model.torch_model import get_data_npz, get_data_torchvision
+    os.environ['DNC_DL_FRAMEWORK'] = 'torch'
+elif args.dl_framework == 'tf.keras':
+    from model.tf_model import get_data_npz
+    os.environ['DNC_DL_FRAMEWORK'] = 'tf.keras'
+from model_search import run_model_search_cnn, run_model_search_mlp
 
 
 try:

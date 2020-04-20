@@ -4,14 +4,19 @@
 # =============================================================================
 
 import numpy as np
-import torch
 from scipy import linalg
 from scipy.stats import norm as gaussian
 import sobol_seq
 import pickle
 import itertools
 import time
-from model.torch_model import run_network, Net, net_kws_defaults, run_kws_defaults
+
+import os
+
+if os.environ['DNC_DL_FRAMEWORK'] == 'torch':
+    from model.torch_model import run_network, get_numparams, net_kws_defaults, run_kws_defaults
+elif os.environ['DNC_DL_FRAMEWORK'] == 'tf.keras':
+    from model.tf_model import run_network, get_numparams, net_kws_defaults, run_kws_defaults
 
 
 # =============================================================================
@@ -24,13 +29,6 @@ def convert_keys(state_keys):
         if key in ['out_channels','hidden_mlp','lr','weight_decay','batch_size']:
             cov_keys.append(key)
     return cov_keys
-
-
-def get_numparams(input_size, output_size, net_kw):
-    ''' Get number of parameters in any net '''
-    net = Net(input_size=input_size, output_size=output_size, **net_kw)
-    numparams = sum([param.nelement() for param in net.parameters()])
-    return numparams
 
 
 def default_weight_decay(dataset_code, input_size, output_size, net_kw):
@@ -225,12 +223,12 @@ def lossfunc(state,
     numparams = get_numparams(input_size=run_network_kw['input_size'], output_size=run_network_kw['output_size'], net_kw=net_kw)
     loss_stats = {}
     
-    acc, ep = recs['val_accs'].max(0)
-    fp = (100 - acc.item())/100
+    acc, ep = np.max(recs['val_accs']), np.argmax(recs['val_accs']) + 1# recs['val_accs'].max(0)
+    fp = (100 - acc)/100.0
     fc = recs['t_epoch']/tbar_epoch if penalize=='t_epoch' else numparams/numparams_bar
     
     loss_stats['loss'] = np.log10(fp + wc*fc)
-    loss_stats['best_val_acc'] = torch.max(recs['val_accs']).item()
+    loss_stats['best_val_acc'] = np.max(recs['val_accs'])# torch.max(recs['val_accs']).item()
     loss_stats['t_epoch'] = recs['t_epoch']
     loss_stats['numparams'] = numparams
     

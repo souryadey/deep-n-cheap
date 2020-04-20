@@ -194,7 +194,11 @@ class Net(nn.Module):
                     dropout_index += 1
         return x
     
-    
+def get_numparams(input_size, output_size, net_kw):
+    ''' Get number of parameters in any net '''
+    net = Net(input_size=input_size, output_size=output_size, **net_kw)
+    numparams = sum([param.nelement() for param in net.parameters()])
+    return numparams
     
 class Hook():
     def __init__(self, layer):
@@ -251,11 +255,11 @@ def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):
     
     ## Convert to tensors on device ##
     xtr = torch.as_tensor(xtr, dtype=torch.float, device=device)
-    ytr = torch.as_tensor(ytr, device=device)
+    ytr = torch.as_tensor(ytr, dtype=torch.long, device=device)
     xva = torch.as_tensor(xva, dtype=torch.float, device=device)
-    yva = torch.as_tensor(yva, device=device)
+    yva = torch.as_tensor(yva, dtype=torch.long, device=device)
     xte = torch.as_tensor(xte, dtype=torch.float, device=device)
-    yte = torch.as_tensor(yte, device=device)
+    yte = torch.as_tensor(yte, dtype=torch.long, device=device)
 
     if val_split != 0:
         return xtr,ytr, xva,yva, xte,yte
@@ -499,8 +503,8 @@ def run_network(
 #     Define records to collect
 # =============================================================================
     recs = {
-            'train_accs': torch.zeros(numepochs), 'train_losses': torch.zeros(numepochs),
-            'val_accs': torch.zeros(numepochs) if validate is True else None, 'val_losses': torch.zeros(numepochs) if validate is True else None, 'val_final_outputs': numepochs*[0] #just initialize a dummy list
+            'train_accs': np.zeros(numepochs), 'train_losses': np.zeros(numepochs),
+            'val_accs': np.zeros(numepochs) if validate is True else None, 'val_losses': np.zeros(numepochs) if validate is True else None, 'val_final_outputs': numepochs*[0] #just initialize a dummy list
             #test_acc and test_loss are defined later
             }
 
@@ -545,7 +549,7 @@ def run_network(
         recs['train_accs'][epoch] = 100*epoch_correct/xtr.shape[0] if not loader else 100*epoch_correct/len(data['train'])
         recs['train_losses'][epoch] = epoch_loss/numbatches
         if verbose:
-            print('Training Acc = {0}%, Loss = {1}'.format(np.round(recs['train_accs'][epoch].item(),2), np.round(recs['train_losses'][epoch].item(),3))) #put \n to make this appear on the next line after progress bar
+            print('Training Acc = {0}%, Loss = {1}'.format(np.round(recs['train_accs'][epoch],2), np.round(recs['train_losses'][epoch],3))) #put \n to make this appear on the next line after progress bar
         
 # =============================================================================
 #         Validate (optional)
@@ -571,7 +575,7 @@ def run_network(
             recs['val_final_outputs'][epoch] = final_outputs
             
             if verbose:
-                print('Validation Acc = {0}%, Loss = {1}'.format(np.round(recs['val_accs'][epoch].item(),2), np.round(recs['val_losses'][epoch].item(),3)))  
+                print('Validation Acc = {0}%, Loss = {1}'.format(np.round(recs['val_accs'][epoch],2), np.round(recs['val_losses'][epoch],3)))  
             
 # =============================================================================
 #             Early stopping logic based on val_acc

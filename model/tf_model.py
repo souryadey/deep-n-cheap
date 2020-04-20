@@ -1,11 +1,22 @@
+# =============================================================================
+# tf.keras implementation of neural networks
+# Ziping Chen, USC
+# =============================================================================
+
 import tensorflow as tf
+import tensorflow.keras.backend as K
 import numpy as np
+import os
+import time
+
+# Ignore tf message
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 net_kws_defaults = {
                     'act': 'relu',
-                    'out_channels': [1],
+                    'out_channels': [],
                     'kernel_sizes': [3],
-                    'paddings': ['valid'], #Fixed acc to kernel_size, i.e. 1 for k=3, 2 for k=5, etc
+                    'paddings': ['valid'],
                     'dilations': [1],
                     'groups': [1],
                     'strides': [1],
@@ -15,7 +26,7 @@ net_kws_defaults = {
                     'apply_dropouts': [1],
                     'dropout_probs': [0.1,0.3], #input layer, other layers
                     'shortcuts': [0],
-                    'hidden_mlp': [1],
+                    'hidden_mlp': [],
                     'apply_dropouts_mlp': [1],
                     'dropout_probs_mlp': [0.2],
                     }
@@ -167,5 +178,258 @@ class Net(tf.keras.Model):
         dropout_index = 0
         for layer in self.mlp:
             x = self.mlp[layer](x)
-
         return x
+
+def get_numparams(input_size, output_size, net_kw):
+    ''' Get number of parameters in any net '''
+    net = Net(input_size=input_size, output_size=output_size, **net_kw)
+    net.build((None, *input_size[-1::-1]))
+    # net.trainable = True
+    # numparams = sum([param.nelement() for param in net.parameters()])
+    trainable_count = np.sum([K.count_params(w) for w in net.trainable_weights])
+    return trainable_count
+
+# =============================================================================
+# Main method to run network
+# =============================================================================
+def run_network(
+                data, input_size, output_size, net_kw, run_kw,
+                num_workers = 8, pin_memory = True,
+                validate = True, val_patience = np.inf, test = False, ensemble = False,
+                numepochs = 100,
+                wt_init = None,#nn.init.kaiming_normal_, 
+                bias_init = None,#(lambda x : nn.init.constant_(x,0.1)),
+                verbose = True
+               ):
+    '''
+    ARGS:
+        data:
+            6-ary tuple (xtr,ytr, xva,yva, xte,yte) from get_data_mlp(), OR
+            Dict with keys 'train', 'val', 'test' from get_data_cnn()
+        input_size, output_size, net_kw : See Net()
+        run_kw:
+            lr: Initial learning rate
+            gamma: Learning rate decay coefficient
+            milestones: When to step decay learning rate, e.g. 0.5 will decay lr halfway through training
+            weight_decay: Default 0
+            batch_size: Default 256
+        num_workers, pin_memory: Only required if using Pytorch data loaders
+            Generally, set num_workers equal to number of threads (e.g. my Macbook pro has 4 cores x 2 = 8 threads)
+        validate: Whether to do validation at the end of every epoch.
+        val_patience: If best val acc doesn't increase for this many epochs, then stop training. Set as np.inf to never stop training (until numepochs)
+        test: True - Test at end, False - don't
+        ensemble: If True, return feedforward soft outputs to be later used for ensembling
+        numepochs: Self explanatory
+        wt_init, bias_init: Respective pytorch functions
+        verbose: Print messages
+    
+    RETURNS:
+        net: Complete net
+        recs: Dictionary with a key for each stat collected and corresponding value for all values of the stat
+    '''
+# =============================================================================
+#     Create net
+# =============================================================================
+    net = Net(input_size=input_size, output_size=output_size, **net_kw)
+    net.build((None, *input_size[-1::-1]))
+    ## Use GPUs if available ##
+    
+    ## Initialize MLP params ##
+    # TODO
+    '''
+    for i in range(len(net.mlp)):
+        if wt_init is not None:
+            wt_init(net.mlp[i].weight.data)
+        if bias_init is not None:
+            bias_init(net.mlp[i].bias.data)
+    '''
+
+# =============================================================================
+#     Hyperparameters for the run
+# =============================================================================
+    lr = run_kw['lr'] if 'lr' in run_kw else run_kws_defaults['lr']
+    gamma = run_kw['gamma'] if 'gamma' in run_kw else run_kws_defaults['gamma'] #previously used value according to decay = 1e-5 in keras = 0.9978 for ExponentialLR
+    milestones = run_kw['milestones'] if 'milestones' in run_kw else run_kws_defaults['milestones']
+    weight_decay = run_kw['weight_decay'] if 'weight_decay' in run_kw else run_kws_defaults['weight_decay']
+    batch_size = run_kw['batch_size'] if 'batch_size' in run_kw else run_kws_defaults['batch_size']
+    if not isinstance(batch_size,int):
+        batch_size = batch_size.item() #this is required for pytorch
+    
+    #lossfunc = nn.CrossEntropyLoss(reduction='mean') ## IMPORTANT: By default, loss is AVERAGED across samples in a batch. If sum is desired, set reduction='sum'
+    lossfunc = tf.keras.losses.SparseCategoricalCrossentropy()
+    #opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+    opt = tf.keras.optimizers.Adam(learning_rate=lr, decay=weight_decay)
+    net.compile(optimizer=opt, loss=lossfunc, metrics=['accuracy'])
+    trainable_count = np.sum([K.count_params(w) for w in net.trainable_weights])
+    #print(net.trainable_weights)
+    #print(trainable_count)
+    #assert 0
+    def multi_step_lr(epoch):
+        LR_START = lr
+        GAMMA = gamma
+        NUMEPOCHS = numepochs
+        step = 0
+        for milestone in milestones:
+            if epoch >= int(milestone * NUMEPOCHS):
+                step += 1
+        return LR_START * (GAMMA ** step)
+        
+    lr_callback = tf.keras.callbacks.LearningRateScheduler(multi_step_lr, verbose=verbose)
+    #scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=[int(numepochs*milestone) for milestone in milestones], gamma=gamma)
+
+
+# =============================================================================
+# Data
+# =============================================================================
+    if type(data) == dict: #using Pytorch data loaders
+        loader = True
+        train_loader = torch.utils.data.DataLoader(data['train'], batch_size = batch_size, shuffle = True, num_workers=num_workers, pin_memory=pin_memory)
+        if validate is True:
+            val_loader = torch.utils.data.DataLoader(data['val'], batch_size = len(data['val']), num_workers=num_workers, pin_memory=pin_memory)
+        if test is True:
+            test_loader = torch.utils.data.DataLoader(data['test'], batch_size = len(data['test']), num_workers=num_workers, pin_memory=pin_memory)
+    else: #using numpy
+        loader = False
+        xtr,ytr, xva,yva, xte,yte = data
+
+
+# =============================================================================
+#     Define records to collect
+# =============================================================================
+    recs = {}
+
+    total_t = 0
+    best_val_acc = -np.inf
+    
+    class TimeHistory(tf.keras.callbacks.Callback):
+        def on_train_begin(self, logs={}):
+            self.times = []
+            # self.test_times = []
+
+        def on_epoch_begin(self, batch, logs={}):
+            self.epoch_time_start = time.time()
+
+        def on_epoch_end(self, batch, logs={}):
+            self.times.append(time.time() - self.epoch_time_start)
+
+        # def on_test_begin(self, batch, logs={}):
+        #     self.test_time_start = time.time()
+
+        # def on_test_end(self, batch, logs={}):
+        #     self.test_times.append(time.time() - self.test_time_start)
+
+    th_callback = TimeHistory()#verbose=verbose)
+    # mcp_callback = 
+# =============================================================================
+#         Run epoch
+# =============================================================================
+    if validate is True:
+        es_callback = tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', patience=val_patience, verbose=verbose, restore_best_weights=True)
+        history = net.fit(
+                x=xtr,
+                y=ytr,
+                verbose=verbose,
+                validation_data=(xva, yva),
+                batch_size=batch_size,
+                epochs=numepochs,
+                shuffle=True,
+                use_multiprocessing=False,
+                callbacks=[lr_callback, th_callback, es_callback])
+        recs['val_accs'] = np.array(history.history['val_accuracy']) * 100
+        recs['val_losses'] = history.history['val_loss']
+        # recs['val_final_outputs'] = None # NOT use
+    else:
+        history = net.fit(
+                x=xtr,
+                y=ytr,
+                verbose=verbose,
+                batch_size=batch_size,
+                epochs=numepochs,
+                shuffle=True,
+                use_multiprocessing=False,
+                callbacks=[lr_callback, th_callback])
+    recs['train_accs'] = np.array(history.history['accuracy']) * 100
+    recs['train_losses'] = history.history['loss']
+
+    total_t += np.sum(th_callback.times)
+
+    ## Final val metrics ##
+    if validate is True:
+        print('\nBest validation accuracy = {0}% obtained in epoch {1}'.format(np.max(recs['val_accs']), np.argmax(recs['val_accs']) + 1))
+
+    if test is True:
+        ret = net.evaluate(
+                x=xte,
+                y=yte,
+                verbose=verbose,
+                batch_size=batch_size,
+                workers=1,
+                use_multiprocessing=False)
+        recs['test_acc'] = ret[1] * 100
+        recs['test_loss'] = ret[0]
+        # recs['test_final_outputs'] = None # NOT use
+            
+    ## Avg time taken per epoch ##
+    recs['t_epoch'] = total_t/(numepochs-1) if numepochs>1 else total_t
+    print('Avg time taken per epoch = {0}'.format(recs['t_epoch']))
+    
+    '''
+    ## Cut recs as a result of early stopping ##
+    recs = { **{key:recs[key][:numepochs] for key in recs if hasattr(recs[key],'__iter__')}, **{key:recs[key] for key in recs if not hasattr(recs[key],'__iter__')} } #this cuts the iterables like valaccs to the early stopping point, and keeps single values like testacc unchanged
+    '''
+
+    return net, recs
+# =============================================================================
+
+# =============================================================================
+# Data processing
+# =============================================================================
+def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):
+    '''
+    Args:
+        data_folder : Location of dataset
+        dataset (string): <dataset name>.npz, must have 4 keys -- xtr, ytr, xte, yte
+            xtr: (num_trainval_samples, num_features...)
+            ytr: (num_trainval_samples,)
+            xte: (num_test_samples, num_features...)
+            yte: (num_test_samples,)
+        val_split (float, optional): What fraction of training data to use for validation
+            If not 0, val data is taken from end of training set. Eg: For val_split=1/6, last 10k images out of 60k for MNIST are taken as val
+            If 0, train set is complete train set (including val). Test data is returned as val set
+            Defaults to 1/5
+    Returns:
+        xtr : Shape: (num_train_samples, num_features...)
+        ytr : Shape: (num_train_samples,)
+        xva : Shape: (num_val_samples, num_features...). This is xte if val_split = 0
+        yva : Shape: (num_val_samples,). This is yte if val_split = 0
+        xte : Shape: (num_test_samples, num_features...)
+        yte : Shape: (num_test_samples,)
+    '''
+    loaded = np.load(data_folder+dataset)
+    xtr = loaded['xtr']
+    ytr = loaded['ytr']
+    xte = loaded['xte']
+    yte = loaded['yte']
+    
+    ## Val split ##
+    if val_split != 0:
+        split = int((1-val_split)*len(xtr))
+        xva = xtr[split:]
+        yva = ytr[split:]
+        xtr = xtr[:split]
+        ytr = ytr[:split]
+    
+    '''
+    ## Convert to tensors on device ##
+    xtr = torch.as_tensor(xtr, dtype=torch.float, device=device)
+    ytr = torch.as_tensor(ytr, device=device)
+    xva = torch.as_tensor(xva, dtype=torch.float, device=device)
+    yva = torch.as_tensor(yva, device=device)
+    xte = torch.as_tensor(xte, dtype=torch.float, device=device)
+    yte = torch.as_tensor(yte, device=device)
+    '''
+
+    if val_split != 0:
+        return xtr,ytr, xva,yva, xte,yte
+    else:
+        return xtr,ytr, xte,yte, xte,yte
