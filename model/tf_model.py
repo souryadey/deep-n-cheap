@@ -183,7 +183,8 @@ class Net(tf.keras.Model):
 def get_numparams(input_size, output_size, net_kw):
     ''' Get number of parameters in any net '''
     net = Net(input_size=input_size, output_size=output_size, **net_kw)
-    net.build((None, *input_size[-1::-1]))
+    # from NCHW to NHWC
+    net.build(tuple([None] + input_size[1:] + [input_size[0]]))
     # net.trainable = True
     # numparams = sum([param.nelement() for param in net.parameters()])
     trainable_count = np.sum([K.count_params(w) for w in net.trainable_weights])
@@ -231,7 +232,7 @@ def run_network(
 #     Create net
 # =============================================================================
     net = Net(input_size=input_size, output_size=output_size, **net_kw)
-    net.build((None, *input_size[-1::-1]))
+    net.build(tuple([None] + input_size[1:] + [input_size[0]]))
     ## Use GPUs if available ##
     
     ## Initialize MLP params ##
