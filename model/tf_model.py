@@ -352,6 +352,7 @@ def run_network(
         recs['test_acc'] = ret[1] * 100
         recs['test_loss'] = ret[0]
         # recs['test_final_outputs'] = None # NOT use
+        print('Test accuracy = {0}%, Loss = {1}\n'.format(np.round(recs['test_acc'],2), np.round(recs['test_loss'],3)))
             
     ## Avg time taken per epoch ##
     recs['t_epoch'] = total_t/(numepochs-1) if numepochs>1 else total_t
