@@ -1,14 +1,11 @@
 import argparse
-import torch
-import torchvision
-
 import os
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument("--network", type = str, default='cnn', help = "Choose from 'cnn' or 'mlp'")
 parser.add_argument("--data_folder", type = str, default='./', help = "Path to folder where dataset is stored")
-parser.add_argument("--dataset", default=torchvision.datasets.CIFAR10, help = "Either something like torchvision.datasets.CIFAR10, or something like 'mnist.npz'")
+parser.add_argument("--dataset", default='mnist', help = "Either something like torchvision.datasets.CIFAR10, or something like 'mnist.npz'")
 parser.add_argument("--val_split", type = float, default = 1/5, help = "Fraction of complete training data to use for validation")
 parser.add_argument("--augment", type = bool, default=True, help = "<CNNs only> Whether to apply basic augmentation")
 parser.add_argument("--input_size", type = int, nargs='+', default=[3,32,32], help = "Dimensions of 1 input data sample")
@@ -50,25 +47,23 @@ parser.add_argument("--dl_framework", type = str, default = 'torch', help = "Cho
 args = parser.parse_args()
 
 if args.dl_framework == 'torch':
-    from model.torch_model import get_data_npz, get_data_torchvision
     os.environ['DNC_DL_FRAMEWORK'] = 'torch'
 elif args.dl_framework == 'tf.keras':
-    from model.tf_model import get_data_npz
     os.environ['DNC_DL_FRAMEWORK'] = 'tf.keras'
+else:
+    raise Exception("framework not support!!!")
+from data.data import get_data_npz, get_data
 from model_search import run_model_search_cnn, run_model_search_mlp
 
-
-try:
-    tvd = issubclass(eval(args.dataset),torch.utils.data.Dataset)
-except:
-    tvd = False
-if tvd:
-    data = get_data_torchvision(data_folder=args.data_folder, dataset=eval(args.dataset), val_split=args.val_split, augment=args.augment)
-    dataset_code = 'XXX'
-else:
+if args.dataset[-4:] == '.npz':
+    # use .npz files
+    dataset = args.dataset[:-4]
     data = get_data_npz(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split)
-    dataset_code = 'M' if args.dataset=='mnist.npz' else 'F' if args.dataset=='fmnist.npz' else 'R' if args.dataset=='rcv1_2000.npz' else 'XXX'
-
+else:
+    # use framework built-in datasets
+    dataset = args.dataset
+    data = get_data(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split, augment=args.augment)
+dataset_code = 'M' if dataset=='mnist' else 'F' if dataset=='fmnist' else 'R' if dataset=='rcv1_2000' else 'XXX'
 
 if args.network == 'cnn':
     run_model_search_cnn(data=data, dataset_code=dataset_code,

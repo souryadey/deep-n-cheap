@@ -256,15 +256,11 @@ def run_network(
     if not isinstance(batch_size,int):
         batch_size = batch_size.item() #this is required for pytorch
     
-    #lossfunc = nn.CrossEntropyLoss(reduction='mean') ## IMPORTANT: By default, loss is AVERAGED across samples in a batch. If sum is desired, set reduction='sum'
     lossfunc = tf.keras.losses.SparseCategoricalCrossentropy()
-    #opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
     opt = tf.keras.optimizers.Adam(learning_rate=lr, decay=weight_decay)
     net.compile(optimizer=opt, loss=lossfunc, metrics=['accuracy'])
     trainable_count = np.sum([K.count_params(w) for w in net.trainable_weights])
-    #print(net.trainable_weights)
-    #print(trainable_count)
-    #assert 0
+
     def multi_step_lr(epoch):
         LR_START = lr
         GAMMA = gamma
@@ -276,23 +272,11 @@ def run_network(
         return LR_START * (GAMMA ** step)
         
     lr_callback = tf.keras.callbacks.LearningRateScheduler(multi_step_lr, verbose=verbose)
-    #scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=[int(numepochs*milestone) for milestone in milestones], gamma=gamma)
-
 
 # =============================================================================
 # Data
 # =============================================================================
-    if type(data) == dict: #using Pytorch data loaders
-        loader = True
-        train_loader = torch.utils.data.DataLoader(data['train'], batch_size = batch_size, shuffle = True, num_workers=num_workers, pin_memory=pin_memory)
-        if validate is True:
-            val_loader = torch.utils.data.DataLoader(data['val'], batch_size = len(data['val']), num_workers=num_workers, pin_memory=pin_memory)
-        if test is True:
-            test_loader = torch.utils.data.DataLoader(data['test'], batch_size = len(data['test']), num_workers=num_workers, pin_memory=pin_memory)
-    else: #using numpy
-        loader = False
-        xtr,ytr, xva,yva, xte,yte = data
-
+    xtr,ytr, xva,yva, xte,yte = data
 
 # =============================================================================
 #     Define records to collect
@@ -320,7 +304,6 @@ def run_network(
         #     self.test_times.append(time.time() - self.test_time_start)
 
     th_callback = TimeHistory()#verbose=verbose)
-    # mcp_callback = 
 # =============================================================================
 #         Run epoch
 # =============================================================================
@@ -381,56 +364,3 @@ def run_network(
 
     return net, recs
 # =============================================================================
-
-# =============================================================================
-# Data processing
-# =============================================================================
-def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):
-    '''
-    Args:
-        data_folder : Location of dataset
-        dataset (string): <dataset name>.npz, must have 4 keys -- xtr, ytr, xte, yte
-            xtr: (num_trainval_samples, num_features...)
-            ytr: (num_trainval_samples,)
-            xte: (num_test_samples, num_features...)
-            yte: (num_test_samples,)
-        val_split (float, optional): What fraction of training data to use for validation
-            If not 0, val data is taken from end of training set. Eg: For val_split=1/6, last 10k images out of 60k for MNIST are taken as val
-            If 0, train set is complete train set (including val). Test data is returned as val set
-            Defaults to 1/5
-    Returns:
-        xtr : Shape: (num_train_samples, num_features...)
-        ytr : Shape: (num_train_samples,)
-        xva : Shape: (num_val_samples, num_features...). This is xte if val_split = 0
-        yva : Shape: (num_val_samples,). This is yte if val_split = 0
-        xte : Shape: (num_test_samples, num_features...)
-        yte : Shape: (num_test_samples,)
-    '''
-    loaded = np.load(data_folder+dataset)
-    xtr = loaded['xtr']
-    ytr = loaded['ytr']
-    xte = loaded['xte']
-    yte = loaded['yte']
-    
-    ## Val split ##
-    if val_split != 0:
-        split = int((1-val_split)*len(xtr))
-        xva = xtr[split:]
-        yva = ytr[split:]
-        xtr = xtr[:split]
-        ytr = ytr[:split]
-    
-    '''
-    ## Convert to tensors on device ##
-    xtr = torch.as_tensor(xtr, dtype=torch.float, device=device)
-    ytr = torch.as_tensor(ytr, device=device)
-    xva = torch.as_tensor(xva, dtype=torch.float, device=device)
-    yva = torch.as_tensor(yva, device=device)
-    xte = torch.as_tensor(xte, dtype=torch.float, device=device)
-    yte = torch.as_tensor(yte, device=device)
-    '''
-
-    if val_split != 0:
-        return xtr,ytr, xva,yva, xte,yte
-    else:
-        return xtr,ytr, xte,yte, xte,yte
