@@ -19,18 +19,16 @@ def get_data(data_folder = './', dataset = "mnist", val_split = 1/5, augment = T
         xte = xte.reshape((xte.shape[0], -1))
     else:
         raise Exception("dataset not supported!!!")
-    
-    ## Val split ##
-    if val_split != 0:
+
+    if abs(val_split) < 1e-8:
+        # val_spilt is 0.0
+        return xtr,ytr, xva,yva, xte,yte
+    else:
         split = int((1-val_split)*len(xtr))
         xva = xtr[split:]
         yva = ytr[split:]
         xtr = xtr[:split]
         ytr = ytr[:split]
-
-    if val_split != 0:
-        return xtr,ytr, xva,yva, xte,yte
-    else:
         return xtr,ytr, xte,yte, xte,yte
 
 def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):

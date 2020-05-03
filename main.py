@@ -5,7 +5,7 @@ parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFo
 
 parser.add_argument("--network", type = str, default='cnn', help = "Choose from 'cnn' or 'mlp'")
 parser.add_argument("--data_folder", type = str, default='./', help = "Path to folder where dataset is stored")
-parser.add_argument("--dataset", default='mnist', help = "Either something like torchvision.datasets.CIFAR10, or something like 'mnist.npz'")
+parser.add_argument("--dataset", type = str, default='mnist', help = "Either something like 'mnist', or something like 'mnist.npz'")
 parser.add_argument("--val_split", type = float, default = 1/5, help = "Fraction of complete training data to use for validation")
 parser.add_argument("--augment", type = bool, default=True, help = "<CNNs only> Whether to apply basic augmentation")
 parser.add_argument("--input_size", type = int, nargs='+', default=[3,32,32], help = "Dimensions of 1 input data sample")
