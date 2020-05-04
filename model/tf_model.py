@@ -88,10 +88,9 @@ class Net(tf.keras.Model):
         #### Conv ####
         self.out_channels = kw['out_channels'] if 'out_channels' in kw else net_kws_defaults['out_channels']
         self.num_layers_conv = len(self.out_channels)
-        # print(self.num_layers_conv)
         self.kernel_sizes = kw['kernel_sizes'] if 'kernel_sizes' in kw else self.num_layers_conv*net_kws_defaults['kernel_sizes']
         self.strides = kw['strides'] if 'strides' in kw else self.num_layers_conv*net_kws_defaults['strides']
-        self.paddings = kw['paddings']  if 'paddings' in kw else self.num_layers_conv*net_kws_defaults['paddings']#[(ks-1)//2 for ks in self.kernel_sizes]
+        self.paddings = kw['paddings']  if 'paddings' in kw else self.num_layers_conv*['same']
         self.dilations = kw['dilations'] if 'dilations' in kw else self.num_layers_conv*net_kws_defaults['dilations']
         self.groups = kw['groups'] if 'groups' in kw else self.num_layers_conv*net_kws_defaults['groups']
         self.apply_bns = kw['apply_bns'] if 'apply_bns' in kw else self.num_layers_conv*net_kws_defaults['apply_bns']
@@ -166,19 +165,19 @@ class Net(tf.keras.Model):
                     rejoin = block+1
                     y = x
                     count_downsampling = sum(self.apply_maxpools[block:block+2]) + sum(self.strides[block:block+2]) - 2
+
                     for _ in range(count_downsampling):
-                        y = tf.nn.avg_pool2d(y, ksize=2)
-                    # TODO
-                    assert False, "No Implementation"
-                    y = tf.keras.layers.ZeroPadding2D()(y)
+                        y = tf.keras.layers.AveragePooling2D(pool_size=(2, 2))(y)
+
+                    y = tf.pad(y,[[0,0],[0,0],[0,0],[0,self.out_channels[block+1] - self.out_channels[block-1]]], 'CONSTANT')
             if block==rejoin and 'act' in layer: #add shortcut to residual just before activation
                 x = tf.keras.layers.Add()([x, y])
             x = self.conv[layer](x)
         x = tf.keras.layers.Flatten()(x)
-        dropout_index = 0
         for layer in self.mlp:
             x = self.mlp[layer](x)
         return x
+
 
 def get_numparams(input_size, output_size, net_kw):
     ''' Get number of parameters in any net '''
