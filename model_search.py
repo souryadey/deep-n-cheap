@@ -10,7 +10,7 @@ import sobol_seq
 import pickle
 import itertools
 import time
-from model.model import run_network, get_numparams, net_kws_defaults, run_kws_defaults
+from model.model import run_network, get_numparams, net_kws_defaults, run_kws_defaults, activations
 
 
 # =============================================================================
@@ -499,7 +499,7 @@ def downsample(apply_maxpools, loss_kw = {}):
         return None, np.inf, None
 
 
-def batch_norm(numlayers, fracs = [0,0.25,0.5,0.75], loss_kw = {}):
+def batch_norm(numlayers, fracs=[0, 0.25, 0.5, 0.75], loss_kw={}):
     '''
     Batch norm all 1 is already done
     Here run for number of batch norm layers = fracs * number of total layers
@@ -512,23 +512,62 @@ def batch_norm(numlayers, fracs = [0,0.25,0.5,0.75], loss_kw = {}):
     states = []
     loss_stats = []
     losses = np.asarray([])
-    
+
     for frac in fracs:
-        if frac==1:
-            continue #already done
-        
+        if frac == 1:
+            continue  # already done
+
         apply_bns = np.zeros(numlayers)
-        
-        if frac!=0:
-            num_bns = int(np.ceil(frac*numlayers))
-            intervals = np.arange(numlayers/num_bns, numlayers+0.001, numlayers/num_bns, dtype='half') #use dtype=half to avoid numerical issues
+
+        if frac != 0:
+            num_bns = int(np.ceil(frac * numlayers))
+            intervals = np.arange(numlayers / num_bns, numlayers + 0.001, numlayers / num_bns,
+                                  dtype='half')  # use dtype=half to avoid numerical issues
             intervals = np.ceil(intervals).astype('int')
-            apply_bns[intervals-1] = 1
-        
+            apply_bns[intervals - 1] = 1
+
         states.append({'apply_bns': [int(x) for x in apply_bns]})
-        loss_stats.append( lossfunc(state=states[-1], **loss_kw) )
-        losses = np.append( losses, loss_stats[-1]['loss'] )
+        loss_stats.append(lossfunc(state=states[-1], **loss_kw))
+        losses = np.append(losses, loss_stats[-1]['loss'])
         print('State = {0}, Loss = {1}\n'.format(states[-1], losses[-1]))
+
+    best_pos, best_loss = np.argmin(losses), np.min(losses)
+    best_state, best_loss_stats = states[best_pos], loss_stats[best_pos]
+    print('\nBest state = {0}, Best loss = {1}'.format(best_state, best_loss))
+    return best_state, best_loss, best_loss_stats
+
+
+def activation(numlayers, fracs = [0.2, 0.3, 0.4,0.6,0.8,1], loss_kw = {}):
+    '''
+    Apply chosen activation function in certain layers
+    Grid search on activation function position and genre
+    '''
+    states = []
+    loss_stats = []
+    losses = np.asarray([])
+
+    act_len = len(activations)-1
+    upper = numlayers * act_len if numlayers * act_len>0 else 0
+
+    for layer in range(upper//2):
+        apply_act = np.zeros(upper)
+
+        for frac in fracs:
+
+            if frac != 0:
+                num = int(np.ceil(frac * upper))
+                intervals = np.arange(numlayers / num, upper + 0.001, numlayers / num,
+                                      dtype='half')  # use dtype=half to avoid numerical issues
+                intervals = np.ceil(intervals).astype('int')
+                apply_act[intervals - 1] = 1
+
+                apply_act.reshape(numlayers, act_len)
+                apply_act = np.sum(apply_act, axis=0)
+
+                states.append({'act_f': apply_act})
+                loss_stats.append( lossfunc(state=states, **loss_kw))
+                losses = np.append( losses, loss_stats[-1]['loss'] )
+                print('State = {0}, Loss = {1}\n'.format(states[-1], losses[-1]))
     
     best_pos, best_loss = np.argmin(losses), np.min(losses)
     best_state, best_loss_stats = states[best_pos], loss_stats[best_pos]
@@ -852,6 +891,38 @@ def run_model_search_cnn(data, dataset_code,
                 print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
             elif problem_type == 'regression':
                 print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_LOSS = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_loss, the_best_loss_t_epoch, time.time()-start_time+prior_time))
+
+        elif ss=='ac': ## activation ##
+            print('STARTING activation')
+            best_state, best_loss, loss_stats = activation(
+                                                            numlayers = numlayers,
+                                                            loss_kw = {
+                                                                        'net_kw_const': the_best_state,
+                                                                        'run_kw_const': {},
+                                                                        'val_patience': val_patience,
+                                                                        'numepochs': numepochs,
+                                                                        'dataset_code': dataset_code,
+                                                                        'run_network_kw': run_network_kw,
+                                                                        'wc': wc,
+                                                                        'tbar_epoch': tbar_epoch
+                                                                    }
+                                                        )
+            if best_loss < the_best_loss:
+                the_best_state.update(best_state)
+                the_best_loss = best_loss
+                if problem_type == 'classification':
+                    the_best_loss_val_acc = loss_stats['best_val_acc']
+                elif problem_type == 'regression':
+                    the_best_loss_val_loss = loss_stats['best_val_loss']
+                the_best_loss_t_epoch = loss_stats['t_epoch']
+            else:
+                the_best_state.update(done_state)
+            if problem_type == 'classification':
+                print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
+            elif problem_type == 'regression':
+                print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
+
+
     
     
 # =============================================================================
