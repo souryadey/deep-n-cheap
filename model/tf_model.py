@@ -48,7 +48,7 @@ nn_activations = {
 
 class Net(tf.keras.Model):
 
-    def __init__(self, input_size = [3,32,32], output_size = 10, **kw):
+    def __init__(self, input_size = [3,32,32], output_size = 10, problem_type = 'classification', **kw):
         '''
         *** Create tf.keras net ***
         input_size: Iterable. Size of 1 input. Example: [3,32,32] for CIFAR, [784] for MNIST
@@ -150,10 +150,16 @@ class Net(tf.keras.Model):
         self.mlp = {}
         dropout_index = 0
         for i in range(1, len(self.n_mlp)):
-            self.mlp['dense-{0}'.format(i - 1)] = tf.keras.layers.Dense(self.n_mlp[i], activation=F_activations[self.act] if i != len(self.n_mlp) - 1 else F_activations['softmax'])
-            if i != len(self.n_mlp) - 1 and self.apply_dropouts_mlp[i - 1] == 1:
-                self.mlp['drop-{0}'.format(i - 1)] = tf.keras.layers.Dropout(self.dropout_probs_mlp[dropout_index])
-                dropout_index += 1
+            if i != len(self.n_mlp) - 1:
+                self.mlp['dense-{0}'.format(i - 1)] = tf.keras.layers.Dense(self.n_mlp[i], activation=F_activations[self.act])
+                if self.apply_dropouts_mlp[i - 1] == 1:
+                    self.mlp['drop-{0}'.format(i - 1)] = tf.keras.layers.Dropout(self.dropout_probs_mlp[dropout_index])
+                    dropout_index += 1
+            else:
+                if problem_type == 'classification':
+                    self.mlp['dense-{0}'.format(i - 1)] = tf.keras.layers.Dense(self.n_mlp[i], activation=F_activations['softmax'])
+                elif problem_type == 'regression':
+                    self.mlp['dense-{0}'.format(i - 1)] = tf.keras.layers.Dense(self.n_mlp[i])
 
     def call(self, inputs):
         rejoin = -1
@@ -193,7 +199,7 @@ def get_numparams(input_size, output_size, net_kw):
 # Main method to run network
 # =============================================================================
 def run_network(
-                data, input_size, output_size, net_kw, run_kw,
+                data, input_size, output_size, problem_type, net_kw, run_kw,
                 num_workers = 8, pin_memory = True,
                 validate = True, val_patience = np.inf, test = False, ensemble = False,
                 numepochs = 100,
@@ -230,7 +236,7 @@ def run_network(
 # =============================================================================
 #     Create net
 # =============================================================================
-    net = Net(input_size=input_size, output_size=output_size, **net_kw)
+    net = Net(input_size=input_size, output_size=output_size, problem_type=problem_type, **net_kw)
     net.build(tuple([None] + input_size[1:] + [input_size[0]]))
     ## Use GPUs if available ##
     
@@ -255,7 +261,10 @@ def run_network(
     if not isinstance(batch_size,int):
         batch_size = batch_size.item() #this is required for pytorch
     
-    lossfunc = tf.keras.losses.SparseCategoricalCrossentropy()
+    if problem_type == 'classification':
+        lossfunc = tf.keras.losses.SparseCategoricalCrossentropy()
+    elif problem_type == 'regression':
+        lossfunc = tf.keras.losses.MeanSquaredError()
     opt = tf.keras.optimizers.Adam(learning_rate=lr, decay=weight_decay)
     net.compile(optimizer=opt, loss=lossfunc, metrics=['accuracy'])
     trainable_count = np.sum([K.count_params(w) for w in net.trainable_weights])
@@ -284,6 +293,7 @@ def run_network(
 
     total_t = 0
     best_val_acc = -np.inf
+    best_val_loss = np.inf
     
     class TimeHistory(tf.keras.callbacks.Callback):
         def on_train_begin(self, logs={}):
@@ -307,7 +317,10 @@ def run_network(
 #         Run epoch
 # =============================================================================
     if validate is True:
-        es_callback = tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', patience=val_patience, verbose=verbose, restore_best_weights=True)
+        if problem_type == 'classification':
+            es_callback = tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', patience=val_patience, verbose=verbose, restore_best_weights=True)
+        elif problem_type == 'regression':
+            es_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=val_patience, verbose=verbose, restore_best_weights=True)
         history = net.fit(
                 x=xtr,
                 y=ytr,
@@ -338,7 +351,10 @@ def run_network(
 
     ## Final val metrics ##
     if validate is True:
-        print('\nBest validation accuracy = {0}% obtained in epoch {1}'.format(np.max(recs['val_accs']), np.argmax(recs['val_accs']) + 1))
+        if problem_type == 'classification':
+            print('\nBest validation accuracy = {0}% obtained in epoch {1}'.format(np.max(recs['val_accs']), np.argmax(recs['val_accs']) + 1))
+        elif problem_type == 'regression':
+            print('\nBest validation loss = {0} obtained in epoch {1}'.format(np.min(recs['val_losses']), np.argmin(recs['val_losses']) + 1))
 
     if test is True:
         ret = net.evaluate(

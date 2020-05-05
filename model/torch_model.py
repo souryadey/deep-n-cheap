@@ -284,7 +284,7 @@ def save_net(net = None, recs = None, filename = './results_new/new'):
 # Main method to run network
 # =============================================================================
 def run_network(
-                data, input_size, output_size, net_kw, run_kw,
+                data, input_size, output_size, problem_type, net_kw, run_kw,
                 num_workers = 8, pin_memory = True,
                 validate = True, val_patience = np.inf, test = False, ensemble = False,
                 numepochs = 100,
@@ -346,7 +346,10 @@ def run_network(
     if not isinstance(batch_size,int):
         batch_size = batch_size.item() #this is required for pytorch
     
-    lossfunc = nn.CrossEntropyLoss(reduction='mean') ## IMPORTANT: By default, loss is AVERAGED across samples in a batch. If sum is desired, set reduction='sum'
+    if problem_type == 'classification':
+        lossfunc = nn.CrossEntropyLoss(reduction='mean') ## IMPORTANT: By default, loss is AVERAGED across samples in a batch. If sum is desired, set reduction='sum'
+    elif problem_type == 'regression':
+        lossfunc = nn.MSELoss()
     opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=[int(numepochs*milestone) for milestone in milestones], gamma=gamma)
 
@@ -377,6 +380,7 @@ def run_network(
 
     total_t = 0
     best_val_acc = -np.inf
+    best_val_loss = np.inf
     
     for epoch in range(numepochs):
         if verbose:
@@ -447,16 +451,28 @@ def run_network(
 # =============================================================================
 #             Early stopping logic based on val_acc
 # =============================================================================
-            if recs['val_accs'][epoch] > best_val_acc:
-                best_val_acc = recs['val_accs'][epoch]
-                best_val_ep = epoch+1
-                val_patience_counter = 0 #don't need to define this beforehand since this portion will always execute first when epoch==0
-            else:
-                val_patience_counter += 1
-                if val_patience_counter == val_patience:
-                    print('Early stopped after epoch {0}'.format(epoch+1))
-                    numepochs = epoch+1 #effective numepochs after early stopping
-                    break
+            if problem_type == 'classification':
+                if recs['val_accs'][epoch] > best_val_acc:
+                    best_val_acc = recs['val_accs'][epoch]
+                    best_val_ep = epoch+1
+                    val_patience_counter = 0 #don't need to define this beforehand since this portion will always execute first when epoch==0
+                else:
+                    val_patience_counter += 1
+                    if val_patience_counter == val_patience:
+                        print('Early stopped after epoch {0}'.format(epoch+1))
+                        numepochs = epoch+1 #effective numepochs after early stopping
+                        break
+            elif problem_type == 'regression':
+                if recs['val_losses'][epoch] < best_val_loss:
+                    best_val_loss = recs['val_losses'][epoch]
+                    best_val_ep = epoch+1
+                    val_patience_counter = 0 #don't need to define this beforehand since this portion will always execute first when epoch==0
+                else:
+                    val_patience_counter += 1
+                    if val_patience_counter == val_patience:
+                        print('Early stopped after epoch {0}'.format(epoch+1))
+                        numepochs = epoch+1 #effective numepochs after early stopping
+                        break
                 
 # =============================================================================
 #         Schedule hyperparameters
@@ -468,7 +484,10 @@ def run_network(
 # =============================================================================
     ## Final val metrics ##
     if validate is True:
-        print('\nBest validation accuracy = {0}% obtained in epoch {1}'.format(best_val_acc,best_val_ep))
+        if problem_type == 'classification':
+            print('\nBest validation accuracy = {0}% obtained in epoch {1}'.format(best_val_acc,best_val_ep))
+        elif problem_type == 'regression':
+            print('\nBest validation loss = {0} obtained in epoch {1}'.format(best_val_loss,best_val_ep))
     
     ## Testing ##
     if test is True:

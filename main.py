@@ -44,6 +44,8 @@ parser.add_argument("--prior_time", type = float, default = 0.0, help = "When re
 # DL framework
 parser.add_argument("--dl_framework", type = str, default = 'torch', help = "Choose from 'torch' or 'tf.keras'")
 
+parser.add_argument("--problem_type", type = str, default = 'classification', help = "Choose from 'classification' or 'regression'")
+
 args = parser.parse_args()
 
 if args.dl_framework == 'torch':
@@ -67,7 +69,7 @@ dataset_code = 'M' if dataset=='mnist' else 'F' if dataset=='fmnist' else 'R' if
 
 if args.network == 'cnn':
     run_model_search_cnn(data=data, dataset_code=dataset_code,
-                         input_size=args.input_size, output_size=args.output_size, verbose=args.verbose,
+                         input_size=args.input_size, output_size=args.output_size, problem_type=args.problem_type, verbose=args.verbose,
                          wc=args.wc, tbar_epoch=args.tbar_epoch, numepochs=args.numepochs, val_patience=args.val_patience,
                          bo_prior_states=args.bo_prior_states, bo_steps=args.bo_steps, bo_explore=args.bo_explore, grid_search_order=args.grid_search_order,
                          num_conv_layers=args.num_conv_layers, channels_first=args.channels_first, channels_upper=args.channels_upper, lr=args.lr, weight_decay=args.weight_decay, batch_size=args.batch_size,
@@ -76,7 +78,7 @@ if args.network == 'cnn':
 
 elif args.network == 'mlp':
     run_model_search_mlp(data=data, dataset_code=dataset_code,
-                         input_size=args.input_size, output_size=args.output_size, verbose=args.verbose,
+                         input_size=args.input_size, output_size=args.output_size, problem_type=args.problem_type, verbose=args.verbose,
                          wc=args.wc, penalize=args.penalize, tbar_epoch=args.tbar_epoch, numepochs=args.numepochs, val_patience=args.val_patience,
                          bo_prior_states=args.bo_prior_states, bo_steps=args.bo_steps, bo_explore=args.bo_explore,
                          num_hidden_layers=args.num_hidden_layers, hidden_nodes=args.hidden_nodes, lr=args.lr, weight_decay=args.weight_decay, batch_size=args.batch_size,

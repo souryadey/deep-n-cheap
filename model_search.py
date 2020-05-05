@@ -179,7 +179,8 @@ def lossfunc(state,
              net_kw_const = {}, run_kw_const = {},
              validate = True, val_patience = np.inf, test = False, numepochs = 100,
              dataset_code = 'T', run_network_kw = {},
-             penalize = 't_epoch', wc = 0.1, tbar_epoch = 1, numparams_bar = 4e6
+             penalize = 't_epoch', wc = 0.1, tbar_epoch = 1, numparams_bar = 4e6,
+             problem_type = 'classification'
              ):
     '''
     *** Wrapper function for run_network. Given a net, find its model search loss and other statistics ***
@@ -217,12 +218,19 @@ def lossfunc(state,
     numparams = get_numparams(input_size=run_network_kw['input_size'], output_size=run_network_kw['output_size'], net_kw=net_kw)
     loss_stats = {}
     
-    acc, ep = np.max(recs['val_accs']), np.argmax(recs['val_accs']) + 1# recs['val_accs'].max(0)
-    fp = (100 - acc)/100.0
+    if problem_type == 'classification':
+        acc, ep = np.max(recs['val_accs']), np.argmax(recs['val_accs']) + 1# recs['val_accs'].max(0)
+        fp = (100 - acc)/100.0
+        loss_stats['best_val_acc'] = np.max(recs['val_accs'])# torch.max(recs['val_accs']).item()
+    elif problem_type == 'regression':
+        loss, ep = np.min(recs['val_losses']), np.argmin(recs['val_losses']) + 1
+        scale = 10 # TODO: tune this scale factor
+        fp = loss * scale
+        loss_stats['best_val_loss'] = np.min(recs['val_losses'])
+
     fc = recs['t_epoch']/tbar_epoch if penalize=='t_epoch' else numparams/numparams_bar
-    
     loss_stats['loss'] = np.log10(fp + wc*fc)
-    loss_stats['best_val_acc'] = np.max(recs['val_accs'])# torch.max(recs['val_accs']).item()
+    
     loss_stats['t_epoch'] = recs['t_epoch']
     loss_stats['numparams'] = numparams
     
@@ -629,7 +637,7 @@ def dropout_mlp(num_hidden_layers, drop_probs = [0,0.1,0.2,0.3,0.4,0.5], loss_kw
 # EXECUTION
 # =============================================================================
 def run_model_search_cnn(data, dataset_code,
-                         input_size, output_size, verbose,
+                         input_size, output_size, problem_type, verbose,
                          wc, tbar_epoch, numepochs, val_patience,
                          bo_prior_states, bo_steps, bo_explore, grid_search_order,
                          num_conv_layers, channels_first, channels_upper, lr, weight_decay, batch_size,
@@ -641,6 +649,7 @@ def run_model_search_cnn(data, dataset_code,
         'data': data,
         'input_size': input_size,
         'output_size': output_size,
+        'problem_type': problem_type,
         'verbose': verbose
         }
     
@@ -681,7 +690,8 @@ def run_model_search_cnn(data, dataset_code,
                                                                 'dataset_code': dataset_code,
                                                                 'run_network_kw': run_network_kw,
                                                                 'wc': wc,
-                                                                'tbar_epoch': tbar_epoch
+                                                                'tbar_epoch': tbar_epoch,
+                                                                'problem_type': problem_type
                                                             },
                                                      mu_val = None,
                                                      covmat_kw = {
@@ -704,7 +714,10 @@ def run_model_search_cnn(data, dataset_code,
     ## Initialization ##
     the_best_state = the_best_states[0]
     the_best_loss = the_best_loss_stats[0]['loss']
-    the_best_loss_val_acc = the_best_loss_stats[0]['best_val_acc']
+    if problem_type == 'classification':
+        the_best_loss_val_acc = the_best_loss_stats[0]['best_val_acc']
+    elif problem_type == 'regression':
+        the_best_loss_val_loss = the_best_loss_stats[0]['best_val_loss']
     the_best_loss_t_epoch = the_best_loss_stats[0]['t_epoch']
     numlayers = len(the_best_state['out_channels'])
     
@@ -723,19 +736,24 @@ def run_model_search_cnn(data, dataset_code,
                                                                         'dataset_code': dataset_code,
                                                                         'run_network_kw': run_network_kw,
                                                                         'wc': wc,
-                                                                        'tbar_epoch': tbar_epoch
+                                                                        'tbar_epoch': tbar_epoch,
+                                                                        'problem_type': problem_type
                                                                     }
                                                              )
             if best_loss < the_best_loss:
                 the_best_state.update(best_state)
                 the_best_loss = best_loss
-                the_best_loss_val_acc = loss_stats['best_val_acc']
+                if problem_type == 'classification':
+                    the_best_loss_val_acc = loss_stats['best_val_acc']
+                elif problem_type == 'regression':
+                    the_best_loss_val_loss = loss_stats['best_val_loss']
                 the_best_loss_t_epoch = loss_stats['t_epoch']
             else:
                 the_best_state.update({'strides':numlayers*net_kws_defaults['strides']})
-            print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
-    
-    
+            if problem_type == 'classification':
+                print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
+            elif problem_type == 'regression':
+                print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_LOSS = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_loss, the_best_loss_t_epoch, time.time()-start_time+prior_time))
     
         elif ss=='bn': ## BN ##
             print('STARTING batch norm')
@@ -750,18 +768,24 @@ def run_model_search_cnn(data, dataset_code,
                                                                         'dataset_code': dataset_code,
                                                                         'run_network_kw': run_network_kw,
                                                                         'wc': wc,
-                                                                        'tbar_epoch': tbar_epoch
+                                                                        'tbar_epoch': tbar_epoch,
+                                                                        'problem_type': problem_type
                                                                     }
                                                              )
             if best_loss < the_best_loss:
                 the_best_state.update(best_state)
                 the_best_loss = best_loss
-                the_best_loss_val_acc = loss_stats['best_val_acc']
+                if problem_type == 'classification':
+                    the_best_loss_val_acc = loss_stats['best_val_acc']
+                elif problem_type == 'regression':
+                    the_best_loss_val_loss = loss_stats['best_val_loss']
                 the_best_loss_t_epoch = loss_stats['t_epoch']
             else:
                 the_best_state.update({'apply_bns':numlayers*net_kws_defaults['apply_bns']})
-            print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
-    
+            if problem_type == 'classification':
+                print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
+            elif problem_type == 'regression':
+                print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_LOSS = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_loss, the_best_loss_t_epoch, time.time()-start_time+prior_time))
     
         elif ss=='do': ## Dropout ##
             print('STARTING dropout')
@@ -779,19 +803,25 @@ def run_model_search_cnn(data, dataset_code,
                                                                         'dataset_code': dataset_code,
                                                                         'run_network_kw': run_network_kw,
                                                                         'wc': wc,
-                                                                        'tbar_epoch': tbar_epoch
+                                                                        'tbar_epoch': tbar_epoch,
+                                                                        'problem_type': problem_type
                                                                     },
                                                             done_state = done_state
                                                         )
             if best_loss < the_best_loss:
                 the_best_state.update(best_state)
                 the_best_loss = best_loss
-                the_best_loss_val_acc = loss_stats['best_val_acc']
+                if problem_type == 'classification':
+                    the_best_loss_val_acc = loss_stats['best_val_acc']
+                elif problem_type == 'regression':
+                    the_best_loss_val_loss = loss_stats['best_val_loss']
                 the_best_loss_t_epoch = loss_stats['t_epoch']
             else:
                 the_best_state.update(done_state)
-            print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
-    
+            if problem_type == 'classification':
+                print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
+            elif problem_type == 'regression':
+                print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_LOSS = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_loss, the_best_loss_t_epoch, time.time()-start_time+prior_time))
     
         elif ss=='sc': ## Shortcuts ##
             print('STARTING shortcuts')
@@ -805,16 +835,23 @@ def run_model_search_cnn(data, dataset_code,
                                                                             'dataset_code': dataset_code,
                                                                             'run_network_kw': run_network_kw,
                                                                             'wc': wc,
-                                                                            'tbar_epoch': tbar_epoch
+                                                                            'tbar_epoch': tbar_epoch,
+                                                                            'problem_type': problem_type
                                                                         }
                                                                  )
             if best_loss < the_best_loss:
                 the_best_state.update(best_state)
                 the_best_loss = best_loss
-                the_best_loss_val_acc = loss_stats['best_val_acc']
+                if problem_type == 'classification':
+                    the_best_loss_val_acc = loss_stats['best_val_acc']
+                elif problem_type == 'regression':
+                    the_best_loss_val_loss = loss_stats['best_val_loss']
                 the_best_loss_t_epoch = loss_stats['t_epoch']
             # no else block since default shortcuts is already in keys
-            print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
+            if problem_type == 'classification':
+                print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
+            elif problem_type == 'regression':
+                print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_LOSS = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_loss, the_best_loss_t_epoch, time.time()-start_time+prior_time))
     
     
 # =============================================================================
@@ -834,7 +871,8 @@ def run_model_search_cnn(data, dataset_code,
                                                                     'dataset_code': dataset_code,
                                                                     'run_network_kw': run_network_kw,
                                                                     'wc': wc,
-                                                                    'tbar_epoch': tbar_epoch
+                                                                    'tbar_epoch': tbar_epoch,
+                                                                    'problem_type': problem_type
                                                                 },
                                                          mu_val = None,
                                                          covmat_kw = {
@@ -855,7 +893,10 @@ def run_model_search_cnn(data, dataset_code,
                                 'weight_decay': default_weight_decay( dataset_code = dataset_code, input_size = run_network_kw['input_size'], output_size = run_network_kw['output_size'], net_kw = the_best_state ),
                                 'batch_size': run_kws_defaults['batch_size']}
                               })
-    final_best_loss_stats.append({'loss':the_best_loss, 'best_val_acc':the_best_loss_val_acc, 't_epoch':the_best_loss_t_epoch})
+    if problem_type == 'classification':
+        final_best_loss_stats.append({'loss':the_best_loss, 'best_val_acc':the_best_loss_val_acc, 't_epoch':the_best_loss_t_epoch})
+    elif problem_type == 'regression':
+        final_best_loss_stats.append({'loss':the_best_loss, 'best_val_loss':the_best_loss_val_loss, 't_epoch':the_best_loss_t_epoch})
     
     
 # =============================================================================
@@ -865,7 +906,10 @@ def run_model_search_cnn(data, dataset_code,
     poses = np.argsort(final_losses)[:training_hyps_bo['num_best']]
     final_best_states = [ final_best_states[pos] for pos in poses ]
     final_best_losses = final_losses[poses]
-    final_best_losses_val_accs = [ final_best_loss_stats[pos]['best_val_acc'] for pos in poses ]
+    if problem_type == 'classification':
+        final_best_losses_val_accs = [ final_best_loss_stats[pos]['best_val_acc'] for pos in poses ]
+    elif problem_type == 'regression':
+        final_best_losses_val_losses = [ final_best_loss_stats[pos]['best_val_loss'] for pos in poses ]
     final_best_losses_t_epochs = [ final_best_loss_stats[pos]['t_epoch'] for pos in poses ]
     final_numparams = get_numparams( input_size = run_network_kw['input_size'], output_size = run_network_kw['output_size'], net_kw = final_best_states[0] ) #all final best states have same architecture, so numparams is just a single value
     
@@ -873,25 +917,38 @@ def run_model_search_cnn(data, dataset_code,
     
     print('\n*---* DRUMROLL... ANNOUNCING BESTS *---*')
     for i, fbs in enumerate(final_best_states):
-        print('\n#{0}: STATE = {1}, LOSS = {2}, VAL_ACC = {3}, T_EPOCH = {4}'.format(i+1, fbs, final_best_losses[i], final_best_losses_val_accs[i], final_best_losses_t_epochs[i]))
+        if problem_type == 'classification':
+            print('\n#{0}: STATE = {1}, LOSS = {2}, VAL_ACC = {3}, T_EPOCH = {4}'.format(i+1, fbs, final_best_losses[i], final_best_losses_val_accs[i], final_best_losses_t_epochs[i]))
+        elif problem_type == 'regression':
+            print('\n#{0}: STATE = {1}, LOSS = {2}, VAL_LOSS = {3}, T_EPOCH = {4}'.format(i+1, fbs, final_best_losses[i], final_best_losses_val_losses[i], final_best_losses_t_epochs[i]))
     print('\nNUM TRAINABLE PARAMETERS = {0}'.format(final_numparams))
     print('\nTOTAL SEARCH TIME = {0} sec = {1} hrs'.format(total_search_time,total_search_time/3600))
     
-    final_records = {
-                    'final_best_states': final_best_states,
-                    'final_best_losses': final_best_losses,
-                    'final_best_losses_val_accs': final_best_losses_val_accs,
-                    'final_best_losses_t_epochs': final_best_losses_t_epochs,
-                    'final_best_net_numparams': final_numparams,
-                    'total_search_time': total_search_time/3600 #in hours
-                    }
+    if problem_type == 'classification':
+        final_records = {
+                        'final_best_states': final_best_states,
+                        'final_best_losses': final_best_losses,
+                        'final_best_losses_val_accs': final_best_losses_val_accs,
+                        'final_best_losses_t_epochs': final_best_losses_t_epochs,
+                        'final_best_net_numparams': final_numparams,
+                        'total_search_time': total_search_time/3600 #in hours
+                        }
+    elif problem_type == 'regression':
+        final_records = {
+                        'final_best_states': final_best_states,
+                        'final_best_losses': final_best_losses,
+                        'final_best_losses_val_losses': final_best_losses_val_losses,
+                        'final_best_losses_t_epochs': final_best_losses_t_epochs,
+                        'final_best_net_numparams': final_numparams,
+                        'total_search_time': total_search_time/3600 #in hours
+                        }
     with open('./results.pkl','wb') as f:
         pickle.dump(final_records,f)
         
         
         
 def run_model_search_mlp(data, dataset_code,
-                         input_size, output_size, verbose,
+                         input_size, output_size, problem_type, verbose,
                          wc, penalize, tbar_epoch, numepochs, val_patience,
                          bo_prior_states, bo_steps, bo_explore,
                          num_hidden_layers, hidden_nodes, lr, weight_decay, batch_size,
@@ -903,6 +960,7 @@ def run_model_search_mlp(data, dataset_code,
         'data': data,
         'input_size': input_size,
         'output_size': output_size,
+        'problem_type': problem_type,
         'verbose': verbose
         }
     
@@ -944,7 +1002,8 @@ def run_model_search_mlp(data, dataset_code,
                                                                 'run_network_kw': run_network_kw,
                                                                 'penalize': penalize,
                                                                 'wc': wc,
-                                                                'tbar_epoch' if penalize == 't_epoch' else 'numparams_bar': penalize_bar
+                                                                'tbar_epoch' if penalize == 't_epoch' else 'numparams_bar': penalize_bar,
+                                                                'problem_type': problem_type
                                                             },
                                                      mu_val = None,
                                                      covmat_kw = {
@@ -966,7 +1025,10 @@ def run_model_search_mlp(data, dataset_code,
     ## Initialization ##
     the_best_state = the_best_states[0]
     the_best_loss = the_best_loss_stats[0]['loss']
-    the_best_loss_val_acc = the_best_loss_stats[0]['best_val_acc']
+    if problem_type == 'classification':
+        the_best_loss_val_acc = the_best_loss_stats[0]['best_val_acc']
+    elif problem_type == 'regression':
+        the_best_loss_val_loss = the_best_loss_stats[0]['best_val_loss']
     the_best_loss_penalize = the_best_loss_stats[0][penalize]
     num_hidden_layers = len(the_best_state['hidden_mlp'])
     
@@ -984,18 +1046,25 @@ def run_model_search_mlp(data, dataset_code,
                                                                 'run_network_kw': run_network_kw,
                                                                 'penalize': penalize,
                                                                 'wc': wc,
-                                                                'tbar_epoch' if penalize == 't_epoch' else 'numparams_bar': penalize_bar
+                                                                'tbar_epoch' if penalize == 't_epoch' else 'numparams_bar': penalize_bar,
+                                                                'problem_type': problem_type
                                                             }
                                                 )
     if best_loss < the_best_loss:
         the_best_state.update(best_state)
         the_best_loss = best_loss
-        the_best_loss_val_acc = loss_stats['best_val_acc']
+        if problem_type == 'classification':
+            the_best_loss_val_acc = loss_stats['best_val_acc']
+        elif problem_type == 'regression':
+            the_best_loss_val_loss = loss_stats['best_val_loss']
         the_best_loss_penalize = loss_stats[penalize]
     else:
         the_best_state.update( {'apply_dropouts_mlp': num_hidden_layers * net_kws_defaults['apply_dropouts_mlp'],
                                 'dropout_probs_mlp': num_hidden_layers * net_kws_defaults['dropout_probs_mlp']} )
-    print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and {3} = {4}, TOTAL SEARCH TIME = {5}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, penalize, the_best_loss_penalize, time.time()-start_time+prior_time))
+    if problem_type == 'classification':
+        print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and {3} = {4}, TOTAL SEARCH TIME = {5}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, penalize, the_best_loss_penalize, time.time()-start_time+prior_time))
+    elif problem_type == 'regression':
+        print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_LOSS = {2} and {3} = {4}, TOTAL SEARCH TIME = {5}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_loss, penalize, the_best_loss_penalize, time.time()-start_time+prior_time))
     
     
 # =============================================================================
@@ -1016,7 +1085,8 @@ def run_model_search_mlp(data, dataset_code,
                                                                     'run_network_kw': run_network_kw,
                                                                     'penalize': penalize,
                                                                     'wc': wc,
-                                                                    'tbar_epoch' if penalize == 't_epoch' else 'numparams_bar': penalize_bar
+                                                                    'tbar_epoch' if penalize == 't_epoch' else 'numparams_bar': penalize_bar,
+                                                                    'problem_type': problem_type
                                                                 },
                                                          mu_val = None,
                                                          covmat_kw = {
@@ -1037,9 +1107,11 @@ def run_model_search_mlp(data, dataset_code,
                                 'weight_decay': default_weight_decay( dataset_code = dataset_code, input_size = run_network_kw['input_size'], output_size = run_network_kw['output_size'], net_kw = the_best_state ),
                                 'batch_size': run_kws_defaults['batch_size']}
                               })
-    final_best_loss_stats.append({'loss':the_best_loss, 'best_val_acc':the_best_loss_val_acc, penalize:the_best_loss_penalize})
-    
-    
+    if problem_type == 'classification':
+        final_best_loss_stats.append({'loss':the_best_loss, 'best_val_acc':the_best_loss_val_acc, penalize:the_best_loss_penalize})
+    elif problem_type == 'regression':
+        final_best_loss_stats.append({'loss':the_best_loss, 'best_val_loss':the_best_loss_val_loss, penalize:the_best_loss_penalize})
+
 # =============================================================================
 #     Final stats and records
 # =============================================================================
@@ -1047,23 +1119,38 @@ def run_model_search_mlp(data, dataset_code,
     poses = np.argsort(final_losses)[:training_hyps_bo['num_best']]
     final_best_states = [ final_best_states[pos] for pos in poses ]
     final_best_losses = final_losses[poses]
-    final_best_losses_val_accs = [ final_best_loss_stats[pos]['best_val_acc'] for pos in poses ]
+    if problem_type == 'classification':
+        final_best_losses_val_accs = [ final_best_loss_stats[pos]['best_val_acc'] for pos in poses ]
+    elif problem_type == 'regression':
+        final_best_losses_val_losses = [ final_best_loss_stats[pos]['best_val_loss'] for pos in poses ]
     final_best_losses_penalizes = [ final_best_loss_stats[pos][penalize] for pos in poses ]
     
     total_search_time = time.time()-start_time+prior_time
     
     print('\n*---* DRUMROLL... ANNOUNCING BESTS *---*')
     for i, fbs in enumerate(final_best_states):
-        print('\n#{0}: STATE = {1}, LOSS = {2}, VAL_ACC = {3}, {4} = {5}'.format(i+1, fbs, final_best_losses[i], final_best_losses_val_accs[i], penalize, final_best_losses_penalizes[i]))
+        if problem_type == 'classification':
+            print('\n#{0}: STATE = {1}, LOSS = {2}, VAL_ACC = {3}, {4} = {5}'.format(i+1, fbs, final_best_losses[i], final_best_losses_val_accs[i], penalize, final_best_losses_penalizes[i]))
+        elif problem_type == 'regression':
+            print('\n#{0}: STATE = {1}, LOSS = {2}, VAL_LOSS = {3}, {4} = {5}'.format(i+1, fbs, final_best_losses[i], final_best_losses_val_losses[i], penalize, final_best_losses_penalizes[i]))
     print('\nTOTAL SEARCH TIME = {0} sec = {1} hrs'.format(total_search_time,total_search_time/3600))
     
-    final_records = {
-                    'final_best_states': final_best_states,
-                    'final_best_losses': final_best_losses,
-                    'final_best_losses_val_accs': final_best_losses_val_accs,
-                    'final_best_losses_penalizes': final_best_losses_penalizes,
-                    'total_search_time': total_search_time/3600 #in hours
-                    }
+    if problem_type == 'classification':
+        final_records = {
+                        'final_best_states': final_best_states,
+                        'final_best_losses': final_best_losses,
+                        'final_best_losses_val_accs': final_best_losses_val_accs,
+                        'final_best_losses_penalizes': final_best_losses_penalizes,
+                        'total_search_time': total_search_time/3600 #in hours
+                        }
+    elif problem_type == 'regression':
+        final_records = {
+                        'final_best_states': final_best_states,
+                        'final_best_losses': final_best_losses,
+                        'final_best_losses_val_losses': final_best_losses_val_losses,
+                        'final_best_losses_penalizes': final_best_losses_penalizes,
+                        'total_search_time': total_search_time/3600 #in hours
+                        }
     with open('./results.pkl','wb') as f:
         pickle.dump(final_records,f)
 
