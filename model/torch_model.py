@@ -28,7 +28,6 @@ net_kws_defaults = {
                     'apply_gap': 1,
                     'apply_bns': [1],
                     'apply_dropouts': [1],
-                    'act_f': [0],
                     'dropout_probs': [0.1,0.3], #input layer, other layers
                     'shortcuts': [0],
                     'hidden_mlp': [],
@@ -44,11 +43,16 @@ run_kws_defaults = {
                     }
 
 F_activations = {
-                'relu': F.relu
+                'relu': F.relu,
+                'tanh': F.tanh,
+                'sigmoid': F.sigmoid,
                 }
 
-activations = [nn.ReLU, nn.PReLU, nn.Tanh, nn.Sigmoid]
-
+nn_activations = {
+                'relu': nn.ReLU,
+                'tanh': nn.Tanh,
+                'sigmoid': nn.Sigmoid
+                 }
 
 # =============================================================================
 # Classes
@@ -100,10 +104,7 @@ class Net(nn.Module):
         self.groups = kw['groups'] if 'groups' in kw else self.num_layers_conv*net_kws_defaults['groups']
         self.apply_bns = kw['apply_bns'] if 'apply_bns' in kw else self.num_layers_conv*net_kws_defaults['apply_bns']
         self.apply_maxpools = kw['apply_maxpools'] if 'apply_maxpools' in kw else self.num_layers_conv*net_kws_defaults['apply_maxpools']
-        self.apply_gap = kw['apply_gap'] if 'apply_gap' in kw else net_kws_defaults['apply_gap']
-
-        self.act_f = kw['act_f'] if 'act_f' in kw else self.num_layers_conv*net_kws_defaults['act_f']
-        
+        self.apply_gap = kw['apply_gap'] if 'apply_gap' in kw else net_kws_defaults['apply_gap']        
         self.apply_dropouts = kw['apply_dropouts'] if 'apply_dropouts' in kw else self.num_layers_conv*net_kws_defaults['apply_dropouts']
         if 'dropout_probs' in kw:
             self.dropout_probs = kw['dropout_probs']
@@ -115,7 +116,6 @@ class Net(nn.Module):
         self.shortcuts = kw['shortcuts'] if 'shortcuts' in kw else self.num_layers_conv*net_kws_defaults['shortcuts']
         
         dropout_index = 0
-        activation_index = 0
         self.conv = nn.ModuleDict({})
         for i in range(self.num_layers_conv):
             self.conv['conv-{0}'.format(i)] = nn.Conv2d(
@@ -135,7 +135,7 @@ class Net(nn.Module):
             if self.apply_bns[i] == 1:
                 self.conv['bn-{0}'.format(i)] = nn.BatchNorm2d(self.out_channels[i])
 
-            self.conv['act-{0}'.format(i)] = activations[self.act_f[i]]()
+            self.conv['act-{0}'.format(i)] = nn_activations[self.act]()
             
             if self.apply_dropouts[i] == 1:
                 self.conv['drop-{0}'.format(i)] = nn.Dropout(self.dropout_probs[dropout_index])

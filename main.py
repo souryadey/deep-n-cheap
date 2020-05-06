@@ -21,7 +21,7 @@ parser.add_argument("--val_patience", type = int, default = 1000000000, help = "
 parser.add_argument("--bo_prior_states", type = int, default = 15, help = "# prior states for Bayesian optimization")
 parser.add_argument("--bo_steps", type = int, default = 15, help = "# optimization steps for Bayesian optimization")
 parser.add_argument("--bo_explore", type = int, default = 1000, help = "# states each step of acquisition function explores in Bayesian optimization")
-parser.add_argument("--grid_search_order", type = str, nargs = 5, default = ['ds','bn','do','sc','ac'], help = "<CNNs only> Any permutation of downsampling 'ds', batch normalization 'bn', dropout 'do' and shortcut connections 'sc'")
+parser.add_argument("--grid_search_order", type = str, nargs = 5, default = ['ac', 'ds','bn','do','sc'], help = "<CNNs only> Any permutation of downsampling 'ds', batch normalization 'bn', dropout 'do' and shortcut connections 'sc'")
 
 parser.add_argument("--num_conv_layers", type = int, nargs = 2, default = [4,16], metavar = ('lower_limit', 'upper_limit'), help = "<CNNs only> Limits for # conv layers")
 parser.add_argument("--channels_first", type = int, nargs = 2, default = [16,64], metavar = ('lower_limit', 'upper_limit'), help = "<CNNs only> Limits for # channels in 1st conv layer")

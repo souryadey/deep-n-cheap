@@ -24,7 +24,6 @@ net_kws_defaults = {
                     'apply_gap': 1,
                     'apply_bns': [1],
                     'apply_dropouts': [1],
-                    'act_f': [0],
                     'dropout_probs': [0.1,0.3], #input layer, other layers
                     'shortcuts': [0],
                     'hidden_mlp': [],
@@ -41,10 +40,17 @@ run_kws_defaults = {
                     }
 
 
-activations = [tf.keras.layers.ReLU,
-               tf.keras.layers.PReLU,
-               tf.keras.activations.tanh,
-               tf.keras.activations.sigmoid]
+F_activations = {
+                'relu': tf.nn.relu,
+                'tanh': tf.nn.tanh,
+                'sigmoid': tf.nn.sigmoid
+                }
+
+nn_activations = {
+                'relu': tf.keras.layers.Activation('relu'),
+                'tanh': tf.keras.layers.Activation('tanh'),
+                'sigmoid': tf.keras.layers.Activation('sigmoid'),
+                }
 
 class Net(tf.keras.Model):
 
@@ -97,8 +103,6 @@ class Net(tf.keras.Model):
         self.apply_maxpools = kw['apply_maxpools'] if 'apply_maxpools' in kw else self.num_layers_conv*net_kws_defaults['apply_maxpools']
         self.apply_gap = kw['apply_gap'] if 'apply_gap' in kw else net_kws_defaults['apply_gap']
 
-        self.act_f = kw['act_f'] if 'act_f' in kw else self.num_layers_conv*net_kws_defaults['act_f']
-
         self.apply_dropouts = kw['apply_dropouts'] if 'apply_dropouts' in kw else self.num_layers_conv*net_kws_defaults['apply_dropouts']
         if 'dropout_probs' in kw:
             self.dropout_probs = kw['dropout_probs']
@@ -130,7 +134,7 @@ class Net(tf.keras.Model):
             if self.apply_bns[i] == 1:
                 self.conv['bn-{0}'.format(i)] = tf.keras.layers.BatchNormalization()
 
-            self.conv['act-{0}'.format(i)] = activations[self.act_f[i]]()
+            self.conv['act-{0}'.format(i)] = nn_activations[self.act]
 
             if self.apply_dropouts[i] == 1:
                 self.conv['drop-{0}'.format(i)] = tf.keras.layers.Dropout(self.dropout_probs[dropout_index])
@@ -153,7 +157,7 @@ class Net(tf.keras.Model):
         dropout_index = 0
         for i in range(1, len(self.n_mlp)):
             if i != len(self.n_mlp) - 1:
-                self.mlp['dense-{0}'.format(i - 1)] = tf.keras.layers.Dense(self.n_mlp[i], activation='relu')
+                self.mlp['dense-{0}'.format(i - 1)] = tf.keras.layers.Dense(self.n_mlp[i], activation=F_activations[self.act])
                 if self.apply_dropouts_mlp[i - 1] == 1:
                     self.mlp['drop-{0}'.format(i - 1)] = tf.keras.layers.Dropout(self.dropout_probs_mlp[dropout_index])
                     dropout_index += 1
