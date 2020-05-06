@@ -899,6 +899,8 @@ def run_model_search_cnn(data, dataset_code,
                 elif problem_type == 'regression':
                     the_best_loss_val_loss = loss_stats['best_val_loss']
                 the_best_loss_t_epoch = loss_stats['t_epoch']
+            else:
+                the_best_state.update({'act':'relu'})
             if problem_type == 'classification':
                 print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and T_EPOCH = {3}, TOTAL SEARCH TIME = {4}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, the_best_loss_t_epoch, time.time()-start_time+prior_time))
             elif problem_type == 'regression':
@@ -1110,6 +1112,8 @@ def run_model_search_mlp(data, dataset_code,
         elif problem_type == 'regression':
             the_best_loss_val_loss = loss_stats['best_val_loss']
         the_best_loss_penalize = loss_stats[penalize]
+    else:
+        the_best_state.update({'act':'relu'})
     if problem_type == 'classification':
         print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and {3} = {4}, TOTAL SEARCH TIME = {5}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, penalize, the_best_loss_penalize, time.time()-start_time+prior_time))
     elif problem_type == 'regression':
