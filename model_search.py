@@ -1086,6 +1086,35 @@ def run_model_search_mlp(data, dataset_code,
     num_hidden_layers = len(the_best_state['hidden_mlp'])
     
     ## Dropout MLP ##
+    print('STARTING activation')
+    best_state, best_loss, loss_stats = activation(
+                                                    numlayers = num_hidden_layers,
+                                                    loss_kw = {
+                                                                'net_kw_const': the_best_state,
+                                                                'run_kw_const': {},
+                                                                'val_patience': val_patience,
+                                                                'numepochs': numepochs,
+                                                                'dataset_code': dataset_code,
+                                                                'run_network_kw': run_network_kw,
+                                                                'penalize': penalize,
+                                                                'wc': wc,
+                                                                'tbar_epoch' if penalize == 't_epoch' else 'numparams_bar': penalize_bar,
+                                                                'problem_type': problem_type
+                                                            }
+                                                )
+    if best_loss < the_best_loss:
+        the_best_state.update(best_state)
+        the_best_loss = best_loss
+        if problem_type == 'classification':
+            the_best_loss_val_acc = loss_stats['best_val_acc']
+        elif problem_type == 'regression':
+            the_best_loss_val_loss = loss_stats['best_val_loss']
+        the_best_loss_penalize = loss_stats[penalize]
+    if problem_type == 'classification':
+        print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_ACC = {2} and {3} = {4}, TOTAL SEARCH TIME = {5}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_acc, penalize, the_best_loss_penalize, time.time()-start_time+prior_time))
+    elif problem_type == 'regression':
+        print('BEST STATE: {0}, BEST LOSS = {1}, corresponding BEST VAL_LOSS = {2} and {3} = {4}, TOTAL SEARCH TIME = {5}\n\n'.format(the_best_state, the_best_loss, the_best_loss_val_loss, penalize, the_best_loss_penalize, time.time()-start_time+prior_time))
+
     print('STARTING dropout')
     best_state, best_loss, loss_stats = dropout_mlp(
                                                     num_hidden_layers = num_hidden_layers,
