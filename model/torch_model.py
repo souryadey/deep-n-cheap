@@ -44,8 +44,8 @@ run_kws_defaults = {
 
 F_activations = {
                 'relu': F.relu,
-                'tanh': F.tanh,
-                'sigmoid': F.sigmoid,
+                'tanh': torch.tanh,
+                'sigmoid': torch.sigmoid,
                 }
 
 nn_activations = {
