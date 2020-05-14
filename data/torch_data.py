@@ -96,7 +96,7 @@ def get_data(data_folder = './', dataset = "mnist", val_split = 1/5, augment = T
         test = dataset(root=data_folder, train=False, download=True, transform=transform_valtest)
         return {'train':train, 'val':test, 'test':test} #doesn't matter that we return test as 'test', it won't be used in that sense
 
-def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):
+def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5, problem_type = 'classification'):
     '''
     Args:
         data_folder : Location of dataset
@@ -135,14 +135,21 @@ def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):
     
     ## Convert to tensors on device ##
     xtr = torch.as_tensor(xtr, dtype=torch.float, device=device)
-    ytr = torch.as_tensor(ytr, dtype=torch.long, device=device)
     xte = torch.as_tensor(xte, dtype=torch.float, device=device)
-    yte = torch.as_tensor(yte, dtype=torch.long, device=device)
+    if problem_type == 'classification':
+        ytr = torch.as_tensor(ytr, dtype=torch.long, device=device)
+        yte = torch.as_tensor(yte, dtype=torch.long, device=device)
+    elif problem_type == 'regression':
+        ytr = torch.as_tensor(ytr, dtype=torch.float, device=device)
+        yte = torch.as_tensor(yte, dtype=torch.float, device=device)
     if abs(val_split) < 1e-8:
         # val_spilt is 0.0
         return xtr,ytr, xte,yte, xte,yte
     else:
         xva = torch.as_tensor(xva, dtype=torch.float, device=device)
-        yva = torch.as_tensor(yva, dtype=torch.long, device=device)
+        if problem_type == 'classification':
+            yva = torch.as_tensor(yva, dtype=torch.long, device=device)
+        elif problem_type == 'regression':
+            yva = torch.as_tensor(yva, dtype=torch.float, device=device)
         return xtr,ytr, xva,yva, xte,yte
         

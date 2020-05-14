@@ -35,7 +35,7 @@ def get_data(data_folder = './', dataset = "mnist", val_split = 1/5, augment = T
         ytr = ytr[:split]
         return xtr,ytr, xva,yva, xte,yte
 
-def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):
+def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5, problem_type = 'classification'):
     '''
     Args:
         data_folder : Location of dataset
@@ -72,7 +72,9 @@ def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):
         xtr = xtr[:split]
         ytr = ytr[:split]
 
-    if val_split != 0:
-        return xtr,ytr, xva,yva, xte,yte
-    else:
+    if abs(val_split) < 1e-8:
+        # val_spilt is 0.0
         return xtr,ytr, xte,yte, xte,yte
+    else:
+        return xtr,ytr, xva,yva, xte,yte
+        

@@ -60,7 +60,7 @@ from model_search import run_model_search_cnn, run_model_search_mlp
 if args.dataset[-4:] == '.npz':
     # use .npz files
     dataset = args.dataset[:-4]
-    data = get_data_npz(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split)
+    data = get_data_npz(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split, problem_type=args.problem_type)
 else:
     # use framework built-in datasets
     dataset = args.dataset
