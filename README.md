@@ -8,7 +8,16 @@ This repository implements _Deep-n-Cheap_ – an AutoML framework to search for 
 
 **Highlight**: State-of-the-art performance on benchmark and custom datasets with training time orders of magnitude lower than competing frameworks and NAS efforts.
 
-**Research paper** available on [arXiv](https://arxiv.org/abs/2004.00974). Please consider citing it if you use or benefit from this work.
+**How to cite?**<br>
+The research paper is available on [arXiv](https://arxiv.org/abs/2004.00974). Use this bibtex for citation:
+```
+@article{Dey2020_automl,
+author = {Sourya Dey and Saikrishna C. Kanala and Keith M. Chugg and Peter A. Beerel},
+title = {Deep-n-Cheap: An Automated Search Framework for Low Complexity Deep Learning},
+journal = {arXiv e-print arXiv:2004.00974},
+year = {2020}
+}
+```
 
 ## How to run?
 - Install Python 3
