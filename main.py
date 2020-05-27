@@ -43,7 +43,8 @@ parser.add_argument("--prior_time", type = float, default = 0.0, help = "When re
 
 # DL framework
 parser.add_argument("--dl_framework", type = str, default = 'torch', help = "Choose from 'torch' or 'tf.keras'")
-
+# task/problem type. Currently support classification and regression.
+# TODO: detection, tracking, segmentation, etc.
 parser.add_argument("--problem_type", type = str, default = 'classification', help = "Choose from 'classification' or 'regression'")
 
 args = parser.parse_args()

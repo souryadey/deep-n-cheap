@@ -197,12 +197,6 @@ class Net(nn.Module):
                     dropout_index += 1
         return x
     
-def get_numparams(input_size, output_size, net_kw):
-    ''' Get number of parameters in any net '''
-    net = Net(input_size=input_size, output_size=output_size, **net_kw)
-    numparams = sum([param.nelement() for param in net.parameters()])
-    return numparams
-    
 class Hook():
     def __init__(self, layer):
         self.hook = layer.register_forward_hook(self.hook_fn)
@@ -218,6 +212,12 @@ class Hook():
 # =============================================================================
 # Helper methods
 # =============================================================================
+def get_numparams(input_size, output_size, net_kw):
+    ''' Get number of parameters in any net '''
+    net = Net(input_size=input_size, output_size=output_size, **net_kw)
+    numparams = sum([param.nelement() for param in net.parameters()])
+    return numparams
+
 def train_batch(x,y, net, lossfunc, opt):
     '''
     Train on 1 batch of data

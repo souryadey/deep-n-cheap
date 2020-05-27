@@ -499,7 +499,7 @@ def downsample(apply_maxpools, loss_kw = {}):
         return None, np.inf, None
 
 
-def batch_norm(numlayers, fracs=[0, 0.25, 0.5, 0.75], loss_kw={}):
+def batch_norm(numlayers, fracs = [0,0.25,0.5,0.75], loss_kw = {}):
     '''
     Batch norm all 1 is already done
     Here run for number of batch norm layers = fracs * number of total layers
@@ -512,35 +512,37 @@ def batch_norm(numlayers, fracs=[0, 0.25, 0.5, 0.75], loss_kw={}):
     states = []
     loss_stats = []
     losses = np.asarray([])
-
+    
     for frac in fracs:
-        if frac == 1:
-            continue  # already done
-
+        if frac==1:
+            continue #already done
+        
         apply_bns = np.zeros(numlayers)
-
-        if frac != 0:
-            num_bns = int(np.ceil(frac * numlayers))
-            intervals = np.arange(numlayers / num_bns, numlayers + 0.001, numlayers / num_bns,
-                                  dtype='half')  # use dtype=half to avoid numerical issues
+        
+        if frac!=0:
+            num_bns = int(np.ceil(frac*numlayers))
+            intervals = np.arange(numlayers/num_bns, numlayers+0.001, numlayers/num_bns, dtype='half') #use dtype=half to avoid numerical issues
             intervals = np.ceil(intervals).astype('int')
-            apply_bns[intervals - 1] = 1
-
+            apply_bns[intervals-1] = 1
+        
         states.append({'apply_bns': [int(x) for x in apply_bns]})
-        loss_stats.append(lossfunc(state=states[-1], **loss_kw))
-        losses = np.append(losses, loss_stats[-1]['loss'])
+        loss_stats.append( lossfunc(state=states[-1], **loss_kw) )
+        losses = np.append( losses, loss_stats[-1]['loss'] )
         print('State = {0}, Loss = {1}\n'.format(states[-1], losses[-1]))
-
+    
     best_pos, best_loss = np.argmin(losses), np.min(losses)
     best_state, best_loss_stats = states[best_pos], loss_stats[best_pos]
     print('\nBest state = {0}, Best loss = {1}'.format(best_state, best_loss))
     return best_state, best_loss, best_loss_stats
 
 
-def activation(numlayers, fracs = None, loss_kw = {}):
+def activation(numlayers, loss_kw = {}):
     '''
-    Apply chosen activation function in certain layers
-    Grid search on activation function position and genre
+    Apply chosen activation function in every layer
+    Example: numlayers = 7, nn_activations.keys() = ['relu', 'tanh', 'sigmoid']
+        1st search: use relu in every layer
+        2nd search: use tanh in every layer
+        3rd search: use sigmoid in every layer
     '''
     states = []
     loss_stats = []

@@ -52,6 +52,9 @@ nn_activations = {
                 'sigmoid': tf.keras.layers.Activation('sigmoid'),
                 }
 
+# =============================================================================
+# Classes
+# =============================================================================
 class Net(tf.keras.Model):
 
     def __init__(self, input_size = [3,32,32], output_size = 10, problem_type = 'classification', **kw):
@@ -59,6 +62,7 @@ class Net(tf.keras.Model):
         *** Create tf.keras net ***
         input_size: Iterable. Size of 1 input. Example: [3,32,32] for CIFAR, [784] for MNIST
         output_size: Integer. #labels. Example: 100 for CIFAR-100, 39 for TIMIT phonemes
+        problem_type: String. Task/problem type. Example: 'classification' or 'regression'
         kw:
             act: String. Activation for all layers. Must be pre-defined in F_activations and nn_activations. Default 'relu'
             --- CONV ---:
@@ -89,7 +93,6 @@ class Net(tf.keras.Model):
         '''
         super(Net, self).__init__()
         self.act = kw['act'] if 'act' in kw else net_kws_defaults['act']
-        #self.input = tf.keras.layers.Input(shape=input_size)   
 
         #### Conv ####
         self.out_channels = kw['out_channels'] if 'out_channels' in kw else net_kws_defaults['out_channels']
@@ -189,14 +192,15 @@ class Net(tf.keras.Model):
             x = self.mlp[layer](x)
         return x
 
-
+# =============================================================================
+# Helper methods
+# =============================================================================
 def get_numparams(input_size, output_size, net_kw):
     ''' Get number of parameters in any net '''
     net = Net(input_size=input_size, output_size=output_size, **net_kw)
-    # from NCHW to NHWC
+    # NOTE: from NCHW to NHWC. This is because of the different orders in tf.keras and PyTorch.
     net.build(tuple([None] + input_size[1:] + [input_size[0]]))
     # net.trainable = True
-    # numparams = sum([param.nelement() for param in net.parameters()])
     trainable_count = np.sum([K.count_params(w) for w in net.trainable_weights])
     return trainable_count
 
@@ -238,6 +242,7 @@ def run_network(
         net: Complete net
         recs: Dictionary with a key for each stat collected and corresponding value for all values of the stat
     '''
+    # TODO: support ensemble and weight initialization in tf.keras
 # =============================================================================
 #     Create net
 # =============================================================================
@@ -246,7 +251,7 @@ def run_network(
     ## Use GPUs if available ##
     
     ## Initialize MLP params ##
-    # TODO
+    # TODO: weight initialization in tf.keras
     '''
     for i in range(len(net.mlp)):
         if wt_init is not None:
@@ -377,11 +382,6 @@ def run_network(
     ## Avg time taken per epoch ##
     recs['t_epoch'] = total_t/(numepochs-1) if numepochs>1 else total_t
     print('Avg time taken per epoch = {0}'.format(recs['t_epoch']))
-    
-    '''
-    ## Cut recs as a result of early stopping ##
-    recs = { **{key:recs[key][:numepochs] for key in recs if hasattr(recs[key],'__iter__')}, **{key:recs[key] for key in recs if not hasattr(recs[key],'__iter__')} } #this cuts the iterables like valaccs to the early stopping point, and keeps single values like testacc unchanged
-    '''
 
     return net, recs
 # =============================================================================

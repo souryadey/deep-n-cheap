@@ -17,7 +17,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 def get_data(data_folder = './', dataset = "mnist", val_split = 1/5, augment = True):
     '''
     Args:
-        dataset (Method from torchvision.datasets): Currently supports MNIST, FMNIST, CIFAR10, CIFAR100
+        dataset (string, Dataset from torchvision.datasets): Currently supports MNIST, FMNIST, CIFAR10, CIFAR100
         val_split (float, optional): What fraction of training data to use for validation
             If not 0, val data is taken from end of training set. Eg: For val_split=1/5, last 10k images out of 50k for CIFAR are taken as val
             If 0, train set is complete train set (including val). Test data is returned as val set
@@ -81,7 +81,7 @@ def get_data(data_folder = './', dataset = "mnist", val_split = 1/5, augment = T
                     ])
         
     ## Create actual datasets ##
-    if val_split != 0: #val data exists
+    if val_split > 1e-8: #val data exists
         train_full = dataset(root=data_folder, train=True, download=True, transform=transform_train)
         val_full = dataset(root=data_folder, train=True, download=True, transform=transform_valtest)
         split = int((1-val_split)*len(train_full))
@@ -109,6 +109,7 @@ def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5, pr
             If not 0, val data is taken from end of training set. Eg: For val_split=1/6, last 10k images out of 60k for MNIST are taken as val
             If 0, train set is complete train set (including val). Test data is returned as val set
             Defaults to 1/5
+        problem_type (string, required): Task/problem type. Required for the dtype of the labels.
 
     Returns:
         xtr (torch tensor): Shape: (num_train_samples, num_features...)
@@ -123,15 +124,7 @@ def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5, pr
     xtr = loaded['xtr']
     ytr = loaded['ytr']
     xte = loaded['xte']
-    yte = loaded['yte']
-    
-    ## Val split ##
-    if val_split != 0:
-        split = int((1-val_split)*len(xtr))
-        xva = xtr[split:]
-        yva = ytr[split:]
-        xtr = xtr[:split]
-        ytr = ytr[:split]
+    yte = loaded['yte'] 
     
     ## Convert to tensors on device ##
     xtr = torch.as_tensor(xtr, dtype=torch.float, device=device)
@@ -142,10 +135,16 @@ def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5, pr
     elif problem_type == 'regression':
         ytr = torch.as_tensor(ytr, dtype=torch.float, device=device)
         yte = torch.as_tensor(yte, dtype=torch.float, device=device)
+
     if abs(val_split) < 1e-8:
         # val_spilt is 0.0
         return xtr,ytr, xte,yte, xte,yte
     else:
+        split = int((1-val_split)*len(xtr))
+        xva = xtr[split:]
+        yva = ytr[split:]
+        xtr = xtr[:split]
+        ytr = ytr[:split]
         xva = torch.as_tensor(xva, dtype=torch.float, device=device)
         if problem_type == 'classification':
             yva = torch.as_tensor(yva, dtype=torch.long, device=device)
