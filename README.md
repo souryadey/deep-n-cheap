@@ -51,7 +51,14 @@ Set `dataset` to either:
 	- `yte`: numpy array of shape (num_test_samples,)
 - Some datasets can be downloaded from the links in `dataset_links.txt`. Alternatively, define your own **custom datasets**.
 
-## Examples
+## Quick Example
+Download mnist.npz from https://drive.google.com/drive/folders/1fFy-kE_hvjEXAfDcqtcormNljj7YJc2R?usp=sharing and put it in this folder. Then run
+```
+python main.py --network 'mlp' --dataset 'mnist.npz' --input_size 784 --output_size 10 --numepochs 3 --bo_prior_states 3 --bo_steps 3 --drop_probs_mlp 0 0.5
+```
+This should take ~90 seconds to run on a CPU without GPU, give around ~97% validation accuracy (YMMV), and produce a file `results.pkl`.
+
+## Detailed Examples
 1. Search for CNNs between 4-16 layers on CIFAR-10, train each for 100 epochs, run Bayesian optimization for 15 prior points and 15 steps. Optimize for performance only. Estimated search cost: 30 GPU hours
 ```
 python main.py --network 'cnn' --dataset torchvision.datasets.CIFAR10 --input_size 3 32 32 --output_size 10 --wc 0 --numepochs 100 --bo_prior_states 15 --bo_steps 15 --num_conv_layers 4 16
