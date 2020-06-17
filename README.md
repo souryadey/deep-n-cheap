@@ -9,7 +9,16 @@ This repository implements _Deep-n-Cheap_ – an AutoML framework to search for 
 
 **Highlight**: State-of-the-art performance on benchmark and custom datasets with training time orders of magnitude lower than competing frameworks and NAS efforts.
 
-**Research paper** available on [arXiv](https://arxiv.org/abs/2004.00974). Please consider citing it if you use or benefit from this work.
+**How to cite?**<br>
+The research paper is available on [arXiv](https://arxiv.org/abs/2004.00974). Use this bibtex for citation:
+```
+@article{Dey2020_automl,
+author = {Sourya Dey and Saikrishna C. Kanala and Keith M. Chugg and Peter A. Beerel},
+title = {Deep-n-Cheap: An Automated Search Framework for Low Complexity Deep Learning},
+journal = {arXiv e-print arXiv:2004.00974},
+year = {2020}
+}
+```
 
 ## How to run?
 - Install Python 3
@@ -45,12 +54,25 @@ Set `dataset` to either:
 	- `yte`: numpy array of shape (num_test_samples,)
 - Some datasets can be downloaded from the links in `dataset_links.txt`. Alternatively, define your own **custom datasets**.
 
+## Quick Example
+Download mnist.npz from https://drive.google.com/drive/folders/1fFy-kE_hvjEXAfDcqtcormNljj7YJc2R?usp=sharing and put it in this folder. Then run
+```
+python main.py --network 'mlp' --dataset 'mnist.npz' --input_size 784 --output_size 10 --numepochs 3 --bo_prior_states 3 --bo_steps 3 --drop_probs_mlp 0 0.5
+```
+This should take ~90 seconds to run on a CPU without GPU, give around ~97% validation accuracy (YMMV), and produce a file `results.pkl`.
+
+<<<<<< czp
 ## Examples
+
+=======
+
+
+## Detailed Examples
 1. Search for CNNs between 4-16 layers on CIFAR-10, train each for 100 epochs, run Bayesian optimization for 15 prior points and 15 steps. Optimize for performance only. Estimated search cost: 30 GPU hours on AWS-EC2 P3-2xlarge
 ```
 python main.py --network 'cnn' --dataset 'cifar10' --input_size 3 32 32 --output_size 10 --wc 0 --numepochs 100 --bo_prior_states 15 --bo_steps 15 --num_conv_layers 4 16 --dl_framework torch
 ```
-The same thing for `tf.keras` version:
+Just change `dl_framework` for `tf.keras` version:
 ```
 python main.py --network 'cnn' --dataset 'cifar10' --input_size 3 32 32 --output_size 10 --wc 0 --numepochs 100 --bo_prior_states 15 --bo_steps 15 --num_conv_layers 4 16 --dl_framework tf.keras
 ```
