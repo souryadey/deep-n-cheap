@@ -22,8 +22,8 @@ year = {2020}
 
 ## How to run?
 - Install Python 3
-- (1) Install [Pytorch](https://pytorch.org/)
-- (2) Or install [tensorflow](https://www.tensorflow.org/)
+- Install [Pytorch](https://pytorch.org/)
+- OR install [tensorflow](https://www.tensorflow.org/)
 
 ```
 $ pip install sobol_seq tqdm
@@ -60,12 +60,6 @@ Download mnist.npz from https://drive.google.com/drive/folders/1fFy-kE_hvjEXAfDc
 python main.py --network 'mlp' --dataset 'mnist.npz' --input_size 784 --output_size 10 --numepochs 3 --bo_prior_states 3 --bo_steps 3 --drop_probs_mlp 0 0.5
 ```
 This should take ~90 seconds to run on a CPU without GPU, give around ~97% validation accuracy (YMMV), and produce a file `results.pkl`.
-
-<<<<<< czp
-## Examples
-
-=======
-
 
 ## Detailed Examples
 1. Search for CNNs between 4-16 layers on CIFAR-10, train each for 100 epochs, run Bayesian optimization for 15 prior points and 15 steps. Optimize for performance only. Estimated search cost: 30 GPU hours on AWS-EC2 P3-2xlarge
