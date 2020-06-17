@@ -43,12 +43,16 @@ run_kws_defaults = {
                     }
 
 F_activations = {
-        'relu': F.relu
-        }
+                'relu': F.relu,
+                'tanh': torch.tanh,
+                'sigmoid': torch.sigmoid,
+                }
+
 nn_activations = {
-        'relu': nn.ReLU
-        }
-    
+                'relu': nn.ReLU,
+                'tanh': nn.Tanh,
+                'sigmoid': nn.Sigmoid
+                 }
 
 # =============================================================================
 # Classes
@@ -100,8 +104,7 @@ class Net(nn.Module):
         self.groups = kw['groups'] if 'groups' in kw else self.num_layers_conv*net_kws_defaults['groups']
         self.apply_bns = kw['apply_bns'] if 'apply_bns' in kw else self.num_layers_conv*net_kws_defaults['apply_bns']
         self.apply_maxpools = kw['apply_maxpools'] if 'apply_maxpools' in kw else self.num_layers_conv*net_kws_defaults['apply_maxpools']
-        self.apply_gap = kw['apply_gap'] if 'apply_gap' in kw else net_kws_defaults['apply_gap']
-        
+        self.apply_gap = kw['apply_gap'] if 'apply_gap' in kw else net_kws_defaults['apply_gap']        
         self.apply_dropouts = kw['apply_dropouts'] if 'apply_dropouts' in kw else self.num_layers_conv*net_kws_defaults['apply_dropouts']
         if 'dropout_probs' in kw:
             self.dropout_probs = kw['dropout_probs']
@@ -131,8 +134,8 @@ class Net(nn.Module):
             
             if self.apply_bns[i] == 1:
                 self.conv['bn-{0}'.format(i)] = nn.BatchNorm2d(self.out_channels[i])
-            
-            self.conv['act-{0}'.format(i)] = nn_activations[self.act]() 
+
+            self.conv['act-{0}'.format(i)] = nn_activations[self.act]()
             
             if self.apply_dropouts[i] == 1:
                 self.conv['drop-{0}'.format(i)] = nn.Dropout(self.dropout_probs[dropout_index])
@@ -194,8 +197,6 @@ class Net(nn.Module):
                     dropout_index += 1
         return x
     
-    
-    
 class Hook():
     def __init__(self, layer):
         self.hook = layer.register_forward_hook(self.hook_fn)
@@ -208,142 +209,15 @@ class Hook():
 # =============================================================================
 
 
-
-# =============================================================================
-# Data processing
-# =============================================================================
-def get_data_npz(data_folder = './', dataset = 'fmnist.npz', val_split = 1/5):
-    '''
-    Args:
-        data_folder : Location of dataset
-        dataset (string): <dataset name>.npz, must have 4 keys -- xtr, ytr, xte, yte
-            xtr: (num_trainval_samples, num_features...)
-            ytr: (num_trainval_samples,)
-            xte: (num_test_samples, num_features...)
-            yte: (num_test_samples,)
-        val_split (float, optional): What fraction of training data to use for validation
-            If not 0, val data is taken from end of training set. Eg: For val_split=1/6, last 10k images out of 60k for MNIST are taken as val
-            If 0, train set is complete train set (including val). Test data is returned as val set
-            Defaults to 1/5
-
-    Returns:
-        xtr (torch tensor): Shape: (num_train_samples, num_features...)
-        ytr (torch tensor): Shape: (num_train_samples,)
-        xva (torch tensor): Shape: (num_val_samples, num_features...). This is xte if val_split = 0
-        yva (torch tensor): Shape: (num_val_samples,). This is yte if val_split = 0
-        xte (torch tensor): Shape: (num_test_samples, num_features...)
-        yte (torch tensor): Shape: (num_test_samples,)
-
-    '''
-    loaded = np.load(data_folder+dataset)
-    xtr = loaded['xtr']
-    ytr = loaded['ytr']
-    xte = loaded['xte']
-    yte = loaded['yte']
-    
-    ## Val split ##
-    if val_split != 0:
-        split = int((1-val_split)*len(xtr))
-        xva = xtr[split:]
-        yva = ytr[split:]
-        xtr = xtr[:split]
-        ytr = ytr[:split]
-    
-    ## Convert to tensors on device ##
-    xtr = torch.as_tensor(xtr, dtype=torch.float, device=device)
-    ytr = torch.as_tensor(ytr, device=device)
-    xva = torch.as_tensor(xva, dtype=torch.float, device=device)
-    yva = torch.as_tensor(yva, device=device)
-    xte = torch.as_tensor(xte, dtype=torch.float, device=device)
-    yte = torch.as_tensor(yte, device=device)
-
-    if val_split != 0:
-        return xtr,ytr, xva,yva, xte,yte
-    else:
-        return xtr,ytr, xte,yte, xte,yte
-
-
-def get_data_torchvision(data_folder = './', dataset = torchvision.datasets.CIFAR10, val_split = 1/5, augment = True):
-    '''
-    Args:
-        dataset (Method from torchvision.datasets): Currently supports MNIST, FMNIST, CIFAR10, CIFAR100
-        val_split (float, optional): What fraction of training data to use for validation
-            If not 0, val data is taken from end of training set. Eg: For val_split=1/5, last 10k images out of 50k for CIFAR are taken as val
-            If 0, train set is complete train set (including val). Test data is returned as val set
-            Defaults to 1/5
-        augment (bool, optional): If True, do transformations
-            Defaults to True
-    
-    Returns:
-        dict: Keys 'train', 'val', 'test'
-            Each is a dataset object which can be fed to a data loader
-            If val_split is 0, test data is returned as 'val'
-
-    '''
-    ## All transforms ##
-    if dataset == torchvision.datasets.MNIST:
-        transform_train = transforms.Compose([transforms.ToTensor()])
-        transform_valtest = transforms.Compose([transforms.ToTensor()])
-        
-    elif dataset == torchvision.datasets.FashionMNIST:
-        if not augment: #no transforms
-            transform_train = transforms.Compose([transforms.ToTensor()])
-            transform_valtest = transforms.Compose([transforms.ToTensor()])
-        else: #fancy transforms, without changing dataset size
-            mus = (0.2855,)
-            sigmas = (0.3528,)
-            transform_train = transforms.Compose([
-                    transforms.RandomCrop(28, padding=4),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mus, sigmas),
-                    # transforms.RandomErasing()
-                    ])
-            transform_valtest = transforms.Compose([
-                    transforms.ToTensor(),
-                    transforms.Normalize(mus, sigmas)
-                    ])
-    
-    elif dataset == torchvision.datasets.CIFAR10 or dataset == torchvision.datasets.CIFAR100:
-        if not augment: #no transforms
-            transform_train = transforms.Compose([transforms.ToTensor()])
-            transform_valtest = transforms.Compose([transforms.ToTensor()])
-        else: #fancy transforms, without changing dataset size
-            mus = (0.4914,0.4821,0.4464) if dataset == torchvision.datasets.CIFAR10 else (0.507,0.4867,0.441)
-            sigmas = (0.2471,0.2436,0.2616) if dataset == torchvision.datasets.CIFAR10 else (0.2674,0.2564,0.276)
-            transform_train = transforms.Compose([
-                    transforms.RandomCrop(32, padding=4),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mus, sigmas),
-                    # transforms.RandomErasing()
-                    ])
-            transform_valtest = transforms.Compose([
-                    transforms.ToTensor(),
-                    transforms.Normalize(mus, sigmas)
-                    ])
-        
-    ## Create actual datasets ##
-    if val_split != 0: #val data exists
-        train_full = dataset(root=data_folder, train=True, download=True, transform=transform_train)
-        val_full = dataset(root=data_folder, train=True, download=True, transform=transform_valtest)
-        split = int((1-val_split)*len(train_full))
-        
-        train = torch.utils.data.Subset(train_full, range(split))
-        val = torch.utils.data.Subset(val_full, range(split, len(val_full)))
-        test = dataset(root=data_folder, train=False, download=True, transform=transform_valtest)
-        return {'train':train, 'val':val, 'test':test}
-    
-    else: #test is val data, actual val data is combined with train
-        train = dataset(root=data_folder, train=True, download=True, transform=transform_train)
-        test = dataset(root=data_folder, train=False, download=True, transform=transform_valtest)
-        return {'train':train, 'val':test, 'test':test} #doesn't matter that we return test as 'test', it won't be used in that sense
-# =============================================================================
-
-
 # =============================================================================
 # Helper methods
 # =============================================================================
+def get_numparams(input_size, output_size, net_kw):
+    ''' Get number of parameters in any net '''
+    net = Net(input_size=input_size, output_size=output_size, **net_kw)
+    numparams = sum([param.nelement() for param in net.parameters()])
+    return numparams
+
 def train_batch(x,y, net, lossfunc, opt):
     '''
     Train on 1 batch of data
@@ -413,7 +287,7 @@ def save_net(net = None, recs = None, filename = './results_new/new'):
 # Main method to run network
 # =============================================================================
 def run_network(
-                data, input_size, output_size, net_kw, run_kw,
+                data, input_size, output_size, problem_type, net_kw, run_kw,
                 num_workers = 8, pin_memory = True,
                 validate = True, val_patience = np.inf, test = False, ensemble = False,
                 numepochs = 100,
@@ -475,7 +349,10 @@ def run_network(
     if not isinstance(batch_size,int):
         batch_size = batch_size.item() #this is required for pytorch
     
-    lossfunc = nn.CrossEntropyLoss(reduction='mean') ## IMPORTANT: By default, loss is AVERAGED across samples in a batch. If sum is desired, set reduction='sum'
+    if problem_type == 'classification':
+        lossfunc = nn.CrossEntropyLoss(reduction='mean') ## IMPORTANT: By default, loss is AVERAGED across samples in a batch. If sum is desired, set reduction='sum'
+    elif problem_type == 'regression':
+        lossfunc = nn.MSELoss()
     opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=[int(numepochs*milestone) for milestone in milestones], gamma=gamma)
 
@@ -499,13 +376,14 @@ def run_network(
 #     Define records to collect
 # =============================================================================
     recs = {
-            'train_accs': torch.zeros(numepochs), 'train_losses': torch.zeros(numepochs),
-            'val_accs': torch.zeros(numepochs) if validate is True else None, 'val_losses': torch.zeros(numepochs) if validate is True else None, 'val_final_outputs': numepochs*[0] #just initialize a dummy list
+            'train_accs': np.zeros(numepochs), 'train_losses': np.zeros(numepochs),
+            'val_accs': np.zeros(numepochs) if validate is True else None, 'val_losses': np.zeros(numepochs) if validate is True else None, 'val_final_outputs': numepochs*[0] #just initialize a dummy list
             #test_acc and test_loss are defined later
             }
 
     total_t = 0
     best_val_acc = -np.inf
+    best_val_loss = np.inf
     
     for epoch in range(numepochs):
         if verbose:
@@ -545,7 +423,7 @@ def run_network(
         recs['train_accs'][epoch] = 100*epoch_correct/xtr.shape[0] if not loader else 100*epoch_correct/len(data['train'])
         recs['train_losses'][epoch] = epoch_loss/numbatches
         if verbose:
-            print('Training Acc = {0}%, Loss = {1}'.format(np.round(recs['train_accs'][epoch].item(),2), np.round(recs['train_losses'][epoch].item(),3))) #put \n to make this appear on the next line after progress bar
+            print('Training Acc = {0}%, Loss = {1}'.format(np.round(recs['train_accs'][epoch],2), np.round(recs['train_losses'][epoch],3))) #put \n to make this appear on the next line after progress bar
         
 # =============================================================================
 #         Validate (optional)
@@ -571,21 +449,33 @@ def run_network(
             recs['val_final_outputs'][epoch] = final_outputs
             
             if verbose:
-                print('Validation Acc = {0}%, Loss = {1}'.format(np.round(recs['val_accs'][epoch].item(),2), np.round(recs['val_losses'][epoch].item(),3)))  
+                print('Validation Acc = {0}%, Loss = {1}'.format(np.round(recs['val_accs'][epoch],2), np.round(recs['val_losses'][epoch],3)))  
             
 # =============================================================================
 #             Early stopping logic based on val_acc
 # =============================================================================
-            if recs['val_accs'][epoch] > best_val_acc:
-                best_val_acc = recs['val_accs'][epoch]
-                best_val_ep = epoch+1
-                val_patience_counter = 0 #don't need to define this beforehand since this portion will always execute first when epoch==0
-            else:
-                val_patience_counter += 1
-                if val_patience_counter == val_patience:
-                    print('Early stopped after epoch {0}'.format(epoch+1))
-                    numepochs = epoch+1 #effective numepochs after early stopping
-                    break
+            if problem_type == 'classification':
+                if recs['val_accs'][epoch] > best_val_acc:
+                    best_val_acc = recs['val_accs'][epoch]
+                    best_val_ep = epoch+1
+                    val_patience_counter = 0 #don't need to define this beforehand since this portion will always execute first when epoch==0
+                else:
+                    val_patience_counter += 1
+                    if val_patience_counter == val_patience:
+                        print('Early stopped after epoch {0}'.format(epoch+1))
+                        numepochs = epoch+1 #effective numepochs after early stopping
+                        break
+            elif problem_type == 'regression':
+                if recs['val_losses'][epoch] < best_val_loss:
+                    best_val_loss = recs['val_losses'][epoch]
+                    best_val_ep = epoch+1
+                    val_patience_counter = 0 #don't need to define this beforehand since this portion will always execute first when epoch==0
+                else:
+                    val_patience_counter += 1
+                    if val_patience_counter == val_patience:
+                        print('Early stopped after epoch {0}'.format(epoch+1))
+                        numepochs = epoch+1 #effective numepochs after early stopping
+                        break
                 
 # =============================================================================
 #         Schedule hyperparameters
@@ -597,7 +487,10 @@ def run_network(
 # =============================================================================
     ## Final val metrics ##
     if validate is True:
-        print('\nBest validation accuracy = {0}% obtained in epoch {1}'.format(best_val_acc,best_val_ep))
+        if problem_type == 'classification':
+            print('\nBest validation accuracy = {0}% obtained in epoch {1}'.format(best_val_acc,best_val_ep))
+        elif problem_type == 'regression':
+            print('\nBest validation loss = {0} obtained in epoch {1}'.format(best_val_loss,best_val_ep))
     
     ## Testing ##
     if test is True:

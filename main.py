@@ -1,14 +1,11 @@
 import argparse
-import torch
-import torchvision
-from model_search import run_model_search_cnn, run_model_search_mlp
-from single_model import get_data_npz, get_data_torchvision
+import os
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument("--network", type = str, default='cnn', help = "Choose from 'cnn' or 'mlp'")
 parser.add_argument("--data_folder", type = str, default='./', help = "Path to folder where dataset is stored")
-parser.add_argument("--dataset", default=torchvision.datasets.CIFAR10, help = "Either something like torchvision.datasets.CIFAR10, or something like 'mnist.npz'")
+parser.add_argument("--dataset", type = str, default='mnist', help = "Either something like 'mnist', or something like 'mnist.npz'")
 parser.add_argument("--val_split", type = float, default = 1/5, help = "Fraction of complete training data to use for validation")
 parser.add_argument("--augment", type = bool, default=True, help = "<CNNs only> Whether to apply basic augmentation")
 parser.add_argument("--input_size", type = int, nargs='+', default=[3,32,32], help = "Dimensions of 1 input data sample")
@@ -24,7 +21,7 @@ parser.add_argument("--val_patience", type = int, default = 1000000000, help = "
 parser.add_argument("--bo_prior_states", type = int, default = 15, help = "# prior states for Bayesian optimization")
 parser.add_argument("--bo_steps", type = int, default = 15, help = "# optimization steps for Bayesian optimization")
 parser.add_argument("--bo_explore", type = int, default = 1000, help = "# states each step of acquisition function explores in Bayesian optimization")
-parser.add_argument("--grid_search_order", type = str, nargs = 4, default = ['ds','bn','do','sc'], metavar = ('ds/bn/do/sc', 'ds/bn/do/sc', 'ds/bn/do/sc', 'ds/bn/do/sc'), help = "<CNNs only> Any permutation of downsampling 'ds', batch normalization 'bn', dropout 'do' and shortcut connections 'sc'")
+parser.add_argument("--grid_search_order", type = str, nargs = 5, default = ['ac', 'ds','bn','do','sc'], help = "<CNNs only> Any permutation of downsampling 'ds', batch normalization 'bn', dropout 'do' and shortcut connections 'sc'")
 
 parser.add_argument("--num_conv_layers", type = int, nargs = 2, default = [4,16], metavar = ('lower_limit', 'upper_limit'), help = "<CNNs only> Limits for # conv layers")
 parser.add_argument("--channels_first", type = int, nargs = 2, default = [16,64], metavar = ('lower_limit', 'upper_limit'), help = "<CNNs only> Limits for # channels in 1st conv layer")
@@ -44,24 +41,36 @@ parser.add_argument("--drop_probs_mlp", type = float, nargs = '+', default = [0,
 parser.add_argument("--num_best", type = int, default = 1, help = "# best models to return from final stage of search")
 parser.add_argument("--prior_time", type = float, default = 0.0, help = "When resuming a run, enter time elapsed so far (useful for getting accurate time estimate)")
 
+# DL framework
+parser.add_argument("--dl_framework", type = str, default = 'torch', help = "Choose from 'torch' or 'tf.keras'")
+# task/problem type. Currently support classification and regression.
+# TODO: detection, tracking, segmentation, etc.
+parser.add_argument("--problem_type", type = str, default = 'classification', help = "Choose from 'classification' or 'regression'")
+
 args = parser.parse_args()
 
-
-try:
-    tvd = issubclass(eval(args.dataset),torch.utils.data.Dataset)
-except:
-    tvd = False
-if tvd:
-    data = get_data_torchvision(data_folder=args.data_folder, dataset=eval(args.dataset), val_split=args.val_split, augment=args.augment)
-    dataset_code = 'XXX'
+if args.dl_framework == 'torch':
+    os.environ['DNC_DL_FRAMEWORK'] = 'torch'
+elif args.dl_framework == 'tf.keras':
+    os.environ['DNC_DL_FRAMEWORK'] = 'tf.keras'
 else:
-    data = get_data_npz(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split)
-    dataset_code = 'M' if args.dataset=='mnist.npz' else 'F' if args.dataset=='fmnist.npz' else 'R' if args.dataset=='rcv1_2000.npz' else 'XXX'
+    raise Exception("framework not support!!!")
+from data.data import get_data_npz, get_data
+from model_search import run_model_search_cnn, run_model_search_mlp
 
+if args.dataset[-4:] == '.npz':
+    # use .npz files
+    dataset = args.dataset[:-4]
+    data = get_data_npz(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split, problem_type=args.problem_type)
+else:
+    # use framework built-in datasets
+    dataset = args.dataset
+    data = get_data(data_folder=args.data_folder, dataset=args.dataset, val_split=args.val_split, augment=args.augment)
+dataset_code = 'M' if dataset=='mnist' else 'F' if dataset=='fmnist' else 'R' if dataset=='rcv1_2000' else 'XXX'
 
 if args.network == 'cnn':
     run_model_search_cnn(data=data, dataset_code=dataset_code,
-                         input_size=args.input_size, output_size=args.output_size, verbose=args.verbose,
+                         input_size=args.input_size, output_size=args.output_size, problem_type=args.problem_type, verbose=args.verbose,
                          wc=args.wc, tbar_epoch=args.tbar_epoch, numepochs=args.numepochs, val_patience=args.val_patience,
                          bo_prior_states=args.bo_prior_states, bo_steps=args.bo_steps, bo_explore=args.bo_explore, grid_search_order=args.grid_search_order,
                          num_conv_layers=args.num_conv_layers, channels_first=args.channels_first, channels_upper=args.channels_upper, lr=args.lr, weight_decay=args.weight_decay, batch_size=args.batch_size,
@@ -70,7 +79,7 @@ if args.network == 'cnn':
 
 elif args.network == 'mlp':
     run_model_search_mlp(data=data, dataset_code=dataset_code,
-                         input_size=args.input_size, output_size=args.output_size, verbose=args.verbose,
+                         input_size=args.input_size, output_size=args.output_size, problem_type=args.problem_type, verbose=args.verbose,
                          wc=args.wc, penalize=args.penalize, tbar_epoch=args.tbar_epoch, numepochs=args.numepochs, val_patience=args.val_patience,
                          bo_prior_states=args.bo_prior_states, bo_steps=args.bo_steps, bo_explore=args.bo_explore,
                          num_hidden_layers=args.num_hidden_layers, hidden_nodes=args.hidden_nodes, lr=args.lr, weight_decay=args.weight_decay, batch_size=args.batch_size,
