@@ -1,5 +1,8 @@
 # deep-n-cheap ![DnC logo](/dnc_logo.png)
 
+## Extended version
+Code for the extended version of Deep-n-Cheap can be found [here](https://github.com/usc-hal/deep-n-cheap/tree/nlp).
+
 ## Welcome
 This repository implements _Deep-n-Cheap_ – an AutoML framework to search for deep learning models. Features include:
 - **Complexity oriented**: Get models with good performance and low training time or parameter count
@@ -10,15 +13,20 @@ This repository implements _Deep-n-Cheap_ – an AutoML framework to search for 
 **Highlight**: State-of-the-art performance on benchmark and custom datasets with training time orders of magnitude lower than competing frameworks and NAS efforts.
 
 **How to cite?**<br>
-The research paper is available on [arXiv](https://arxiv.org/abs/2004.00974). Use this bibtex for citation:
+The original research paper was presented in [ACML 2020](http://proceedings.mlr.press/v129/dey20a.html), and is also available on [arXiv](https://arxiv.org/abs/2004.00974). Use this bibtex for citation:
 ```
-@article{Dey2020_automl,
-author = {Sourya Dey and Saikrishna C. Kanala and Keith M. Chugg and Peter A. Beerel},
-title = {Deep-n-Cheap: An Automated Search Framework for Low Complexity Deep Learning},
-journal = {arXiv e-print arXiv:2004.00974},
-year = {2020}
+@inproceedings{Dey2020_ACML,
+  title = {Deep-n-Cheap: An Automated Search Framework for Low Complexity Deep Learning},
+  author = {Dey, Sourya and Kanala, Saikrishna C. and Chugg, Keith M. and Beerel, Peter A.},
+  booktitle = {Proc. 12th Asian Conference on Machine Learning (ACML)},
+  pages = {273--288},
+  year = {2020},
+  month = {Nov},
+  publisher = {Proceedings of Machine Learning Research (PMLR)},
+  volume = {129}
 }
 ```
+The extended version paper is published in the journal [SN Computer Science](https://link.springer.com/article/10.1007%2Fs42979-021-00646-0).
 
 ## How to run?
 - Install Python 3
@@ -96,7 +104,7 @@ python main.py --network 'cnn' --dataset 'rcv1_2000_reshaped.npz' --input_size 5
 python3 main.py --network 'mlp' --dataset new_reg.npz --val_split 0. --input_size 1 --output_size 1 --wc 0.0 --numepochs 10 --bo_prior_states 3 --bo_steps 3 --bo_explore 10 --dl_framework tf.keras --problem_type regression --batch_size 4 8
 ```
 
-## Some results from the research paper
+## Some results from the original research paper
 - &gt;91% accuracy on CIFAR-10 in 9 hrs of searching with a model taking 3 sec/epoch to train.
 - &gt;95% accuracy on Fashion-MNIST in 17 hrs of searching with a model taking 5 sec/epoch to train.
 - &gt;91% accuracy on Reuters RCV1 in 2 hrs of searching with a model with 1M parameters.
